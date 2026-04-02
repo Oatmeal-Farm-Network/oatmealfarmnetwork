@@ -112,6 +112,8 @@ export default function AccountLayout({ children, Business, BusinessID, PeopleID
           )}
 
           <nav className="flex flex-col gap-1 p-2 flex-grow overflow-y-auto">
+
+            {/* Account Home */}
             <div className="mb-1">
               <div className="flex items-center gap-0 rounded-lg overflow-hidden">
                 <NavItem
@@ -140,31 +142,24 @@ export default function AccountLayout({ children, Business, BusinessID, PeopleID
               )}
             </div>
 
+            {/* Farm 2 Table — combined section (replaces separate Marketplace + Farm 2 Table) */}
             <NavSection
-              icon="/icons/Products.svg"
-              label="Marketplace"
+              icon="/icons/produce.webp"
+              label="Farm 2 Table"
               expanded={Expanded}
-              isOpen={OpenSections.Marketplace || false}
-              onToggle={() => toggleSection('Marketplace')}
+              isOpen={OpenSections['Farm 2 Table'] || false}
+              onToggle={() => toggleSection('Farm 2 Table')}
             >
-              <NavChild to={`/seller/listings?BusinessID=${BusinessID}`} label="My Listings" />
               <NavChild to={`/seller/orders?BusinessID=${BusinessID}`} label="Incoming Orders" />
               <NavChild to="/marketplaces/farm-to-table" label="Browse Marketplace" />
+              {[8, 10, 14, 26, 29, 31].includes(BT) && (
+                <>
+                  <NavChild to={`/produce/inventory?BusinessID=${BusinessID}`} label="Produce" />
+                  <NavChild to={`/produce/processed-food?BusinessID=${BusinessID}`} label="Processed Foods" />
+                  <NavChild to={`/produce/meat?BusinessID=${BusinessID}`} label="Meat" />
+                </>
+              )}
             </NavSection>
-
-            {[8, 10, 14, 26, 29, 31].includes(BT) && (
-              <NavSection
-                icon="/icons/produce.webp"
-                label="Farm 2 Table"
-                expanded={Expanded}
-                isOpen={OpenSections['Farm 2 Table'] || false}
-                onToggle={() => toggleSection('Farm 2 Table')}
-              >
-                <NavChild to={`/produce/inventory?BusinessID=${BusinessID}`} label="Produce" />
-                <NavChild to={`/produce/processed-food?BusinessID=${BusinessID}`} label="Processed Foods" />
-                <NavChild to={`/produce/meat?BusinessID=${BusinessID}`} label="Meat" />
-              </NavSection>
-            )}
 
             {BT === 8 && (
               <NavSection
@@ -276,6 +271,7 @@ export default function AccountLayout({ children, Business, BusinessID, PeopleID
               <NavChild to={`/website/home?BusinessID=${BusinessID}&PeopleID=${PeopleID}`} label="Home Page" />
               <NavChild to={`/website/about?BusinessID=${BusinessID}&PeopleID=${PeopleID}`} label="About Us" />
             </NavSection>
+
           </nav>
         </div>
 

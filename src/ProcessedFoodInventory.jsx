@@ -1,352 +1,434 @@
-import React, { useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import AccountLayout from './AccountLayout';
-import { useAccount } from './AccountContext';
+import React, { useState, useEffect } from 'react';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+const API_URL = import.meta.env.VITE_API_URL;
+
+const STATUS_COLORS = {
+  active:   { bg: 'bg-[#e8f0e0]', text: 'text-[#4a6741]', dot: 'bg-[#819360]' },
+  inactive: { bg: 'bg-gray-100',  text: 'text-gray-500',  dot: 'bg-gray-400'  },
+  low:      { bg: 'bg-amber-50',  text: 'text-amber-700', dot: 'bg-amber-400' },
+};
+
+function getStockStatus(item) {
+  if (!item.ShowProcessedFood) return 'inactive';
+  if (item.Quantity <= 5)       return 'low';
+  return 'active';
+}
+
+function StatusBadge({ item }) {
+  const status = getStockStatus(item);
+  const c = STATUS_COLORS[status];
+  const labels = { active: 'Active', inactive: 'Inactive', low: 'Low Stock' };
+  return (
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${c.bg} ${c.text}`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${c.dot}`} />
+      {labels[status]}
+    </span>
+  );
+}
 
 export default function ProcessedFoodInventory() {
-  const [searchParams] = useSearchParams();
-  const BusinessID = searchParams.get('BusinessID');
-  const PeopleID = localStorage.getItem('people_id');
-  const { Business, LoadBusiness } = useAccount();
+  const [items, setItems]       = useState([]);
+  const [loading, setLoading]   = useState(true);
+  const [error, setError]       = useState('');
+  const [search, setSearch]     = useState('');
+  const [sortBy, setSortBy]     = useState('newest');
+  const [showModal, setShowModal] = useState(false);
+  const [editing, setEditing]   = useState(null);
+  const [saving, setSaving]     = useState(false);
+  const [formError, setFormError] = useState('');
 
-  const [categories, setCategories] = useState([]);
-  const [inventory, setInventory] = useState([]);
-  const [loadingInventory, setLoadingInventory] = useState(true);
+  const businessId = localStorage.getItem('business_id');
+  const token      = localStorage.getItem('access_token');
 
-  // Add form
-  const [addForm, setAddForm] = useState({
-    Name: '',
-    ProcessedFoodCategoryID: '',
-    Quantity: '',
-    WholesalePrice: '',
-    RetailPrice: '',
-  });
-  const [adding, setAdding] = useState(false);
-  const [addSuccess, setAddSuccess] = useState(false);
-  const [addError, setAddError] = useState(null);
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
 
-  // Inline edit state
-  const [editRows, setEditRows] = useState({});
-  const [savingRow, setSavingRow] = useState(null);
-  const [deletingRow, setDeletingRow] = useState(null);
-
-  useEffect(() => {
-    LoadBusiness(BusinessID);
-    loadCategories();
-    loadInventory();
-  }, [BusinessID]);
-
-  async function loadCategories() {
-    const data = await fetch(`${API_URL}/api/processed-food/categories`)
-      .then(r => r.json()).catch(() => []);
-    setCategories(Array.isArray(data) ? data : []);
+  // ── Fetch listings ────────────────────────────────────────────────────────
+  async function fetchItems() {
+    setLoading(true);
+    setError('');
+    try {
+      const res  = await fetch(`${API_URL}/api/marketplace/seller/listings?business_id=${businessId}`, { headers });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Failed to load inventory');
+      setItems(data.filter(i => i.ProductType === 'processed_food'));
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
   }
 
-  async function loadInventory() {
-    setLoadingInventory(true);
-    const data = await fetch(`${API_URL}/api/processed-food/inventory?BusinessID=${BusinessID}`)
-      .then(r => r.json()).catch(() => []);
-    setInventory(Array.isArray(data) ? data : []);
-    setLoadingInventory(false);
-  }
+  useEffect(() => { fetchItems(); }, []);
 
-  async function handleAdd(e) {
+  // ── Derived list ──────────────────────────────────────────────────────────
+  const filtered = items
+    .filter(i => !search || i.Title?.toLowerCase().includes(search.toLowerCase()) ||
+                             i.Description?.toLowerCase().includes(search.toLowerCase()))
+    .sort((a, b) => {
+      if (sortBy === 'name_asc')    return (a.Title || '').localeCompare(b.Title || '');
+      if (sortBy === 'price_asc')   return a.UnitPrice - b.UnitPrice;
+      if (sortBy === 'price_desc')  return b.UnitPrice - a.UnitPrice;
+      if (sortBy === 'qty_asc')     return a.QuantityAvailable - b.QuantityAvailable;
+      return b.SourceID - a.SourceID; // newest
+    });
+
+  // ── Modal helpers ─────────────────────────────────────────────────────────
+  const emptyForm = {
+    Name: '', Description: '', RetailPrice: '', WholesalePrice: '',
+    Quantity: '', ShowProcessedFood: true, AvailableDate: '', ImageURL: '',
+  };
+
+  function openAdd()  { setEditing(emptyForm); setFormError(''); setShowModal(true); }
+  function openEdit(item) {
+    setEditing({
+      ProcessedFoodID:  item.SourceID,
+      Name:             item.Title        || '',
+      Description:      item.Description  || '',
+      RetailPrice:      item.UnitPrice    ?? '',
+      WholesalePrice:   item.WholesalePrice ?? '',
+      Quantity:         item.QuantityAvailable ?? '',
+      ShowProcessedFood: item.IsActive ?? true,
+      AvailableDate:    item.AvailableDate ? item.AvailableDate.split('T')[0] : '',
+      ImageURL:         item.ImageURL     || '',
+    });
+    setFormError('');
+    setShowModal(true);
+  }
+  function closeModal() { setShowModal(false); setEditing(null); }
+
+  async function handleSave(e) {
     e.preventDefault();
-    setAdding(true);
-    setAddSuccess(false);
-    setAddError(null);
-    const res = await fetch(`${API_URL}/api/processed-food/add`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...addForm, BusinessID }),
-    });
-    if (res.ok) {
-      setAddSuccess(true);
-      setAddForm({ Name: '', ProcessedFoodCategoryID: '', Quantity: '', WholesalePrice: '', RetailPrice: '' });
-      await loadInventory();
-    } else {
-      const d = await res.json().catch(() => ({}));
-      setAddError(d.detail || 'An error occurred.');
+    setSaving(true);
+    setFormError('');
+    try {
+      const isNew = !editing.ProcessedFoodID;
+      const payload = {
+        ...editing,
+        BusinessID:    parseInt(businessId),
+        RetailPrice:   parseFloat(editing.RetailPrice),
+        WholesalePrice: editing.WholesalePrice ? parseFloat(editing.WholesalePrice) : null,
+        Quantity:      parseFloat(editing.Quantity),
+      };
+      const url    = isNew
+        ? `${API_URL}/api/marketplace/processed-food`
+        : `${API_URL}/api/marketplace/processed-food/${editing.ProcessedFoodID}`;
+      const method = isNew ? 'POST' : 'PUT';
+      const res    = await fetch(url, { method, headers, body: JSON.stringify(payload) });
+      const data   = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Save failed');
+      closeModal();
+      fetchItems();
+    } catch (e) {
+      setFormError(e.message);
+    } finally {
+      setSaving(false);
     }
-    setAdding(false);
   }
 
-  function startEdit(item) {
-    setEditRows(prev => ({
-      ...prev,
-      [item.ProcessedFoodID]: {
-        Quantity:        item.Quantity ?? '',
-        WholesalePrice:  item.WholesalePrice ?? '',
-        RetailPrice:     item.RetailPrice ?? '',
-        AvailableDate:   item.AvailableDate ? item.AvailableDate.split('T')[0] : '',
-        ShowProcessedFood: item.ShowProcessedFood ?? 0,
-      },
-    }));
+  async function toggleVisibility(item) {
+    try {
+      await fetch(`${API_URL}/api/marketplace/processed-food/${item.SourceID}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({ ShowProcessedFood: !item.IsActive }),
+      });
+      fetchItems();
+    } catch { /* silent */ }
   }
 
-  function updateEditRow(id, field, value) {
-    setEditRows(prev => ({ ...prev, [id]: { ...prev[id], [field]: value } }));
-  }
+  // ── Stats ─────────────────────────────────────────────────────────────────
+  const totalItems    = items.length;
+  const activeItems   = items.filter(i => i.IsActive).length;
+  const lowStockItems = items.filter(i => i.IsActive && i.QuantityAvailable <= 5).length;
+  const totalValue    = items.reduce((s, i) => s + (i.UnitPrice * i.QuantityAvailable), 0);
 
-  async function handleUpdate(id) {
-    setSavingRow(id);
-    const row = editRows[id];
-    const res = await fetch(`${API_URL}/api/processed-food/update/${id}?BusinessID=${BusinessID}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(row),
-    });
-    if (res.ok) {
-      setEditRows(prev => { const n = { ...prev }; delete n[id]; return n; });
-      await loadInventory();
-    }
-    setSavingRow(null);
-  }
-
-  async function handleDelete(id) {
-    if (!confirm('Are you sure you want to delete this processed food item?')) return;
-    setDeletingRow(id);
-    await fetch(`${API_URL}/api/processed-food/delete/${id}?BusinessID=${BusinessID}`, { method: 'DELETE' });
-    await loadInventory();
-    setDeletingRow(null);
-  }
-
-  const inputCls = "border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#819360] w-full";
-  const labelCls = "block text-xs font-medium text-gray-500 mb-1";
-
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <AccountLayout Business={Business} BusinessID={BusinessID} PeopleID={PeopleID}>
-      <div className="max-w-full mx-auto space-y-6">
+    <div className="min-h-screen bg-[#f7f5f0] font-sans">
 
-        {/* ── ADD FORM ── */}
-        <div className="bg-white rounded-2xl shadow border border-gray-200 p-6">
-          <h1 className="text-2xl font-bold text-gray-800 mb-1">Processed Food Inventory</h1>
-          <p className="text-sm text-gray-500 mb-4">Jams, sauces, baked goods, etc.</p>
-          <h2 className="text-base font-semibold text-gray-600 mb-4">Add Processed Food</h2>
+      {/* Header */}
+      <div className="bg-white border-b border-gray-200 px-6 py-5">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 font-lora">Processed Food Inventory</h1>
+            <p className="text-sm text-gray-500 mt-0.5">Manage your value-added and processed food listings</p>
+          </div>
+          <button
+            onClick={openAdd}
+            className="bg-[#819360] hover:bg-[#6a7a4f] text-white font-semibold px-5 py-2.5 rounded-xl text-sm transition-colors flex items-center gap-2"
+          >
+            <span className="text-lg leading-none">+</span> Add Item
+          </button>
+        </div>
+      </div>
 
-          {addSuccess && (
-            <div className="bg-green-50 border border-green-300 text-green-700 rounded px-4 py-2 text-sm mb-4">
-              Processed food added successfully.
+      <div className="max-w-7xl mx-auto px-6 py-8">
+
+        {/* Stats row */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          {[
+            { label: 'Total Items',   value: totalItems,                      color: 'text-gray-800' },
+            { label: 'Active',        value: activeItems,                     color: 'text-[#819360]' },
+            { label: 'Low Stock',     value: lowStockItems,                   color: 'text-amber-600' },
+            { label: 'Inventory Value', value: `$${totalValue.toFixed(2)}`,   color: 'text-gray-800' },
+          ].map(s => (
+            <div key={s.label} className="bg-white rounded-2xl px-5 py-4 shadow-sm border border-gray-100">
+              <p className="text-xs text-gray-400 uppercase tracking-wider font-semibold">{s.label}</p>
+              <p className={`text-2xl font-bold mt-1 ${s.color}`}>{s.value}</p>
             </div>
-          )}
-          {addError && (
-            <div className="bg-red-50 border border-red-300 text-red-700 rounded px-4 py-2 text-sm mb-4">
-              {addError}
+          ))}
+        </div>
+
+        {/* Filters */}
+        <div className="flex flex-col sm:flex-row gap-3 mb-6">
+          <input
+            type="text"
+            placeholder="Search items..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="flex-1 border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#819360] focus:ring-2 focus:ring-[#819360]/20 bg-white"
+          />
+          <select
+            value={sortBy}
+            onChange={e => setSortBy(e.target.value)}
+            className="border border-gray-200 rounded-xl px-4 py-2.5 text-sm bg-white focus:outline-none focus:border-[#819360] text-gray-600"
+          >
+            <option value="newest">Newest First</option>
+            <option value="name_asc">Name A–Z</option>
+            <option value="price_asc">Price: Low–High</option>
+            <option value="price_desc">Price: High–Low</option>
+            <option value="qty_asc">Quantity: Low–High</option>
+          </select>
+        </div>
+
+        {/* Error */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 mb-6 text-sm">
+            {error}
+          </div>
+        )}
+
+        {/* Loading */}
+        {loading && (
+          <div className="text-center py-20 text-gray-400 text-sm">Loading inventory...</div>
+        )}
+
+        {/* Empty state */}
+        {!loading && !error && filtered.length === 0 && (
+          <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-gray-200">
+            <p className="text-4xl mb-3">🫙</p>
+            <p className="text-gray-500 font-medium">No processed food items yet</p>
+            <p className="text-gray-400 text-sm mt-1">Add jams, sauces, baked goods, and more</p>
+            <button onClick={openAdd} className="mt-5 bg-[#819360] text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-[#6a7a4f] transition-colors">
+              Add Your First Item
+            </button>
+          </div>
+        )}
+
+        {/* Table */}
+        {!loading && filtered.length > 0 && (
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-100 bg-[#f9faf7]">
+                  <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider">Item</th>
+                  <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden md:table-cell">Retail Price</th>
+                  <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden md:table-cell">Wholesale</th>
+                  <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider">Qty</th>
+                  <th className="text-left px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="text-right px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {filtered.map(item => (
+                  <tr key={item.ListingID} className="hover:bg-[#f9faf7] transition-colors">
+                    <td className="px-5 py-4">
+                      <div className="flex items-center gap-3">
+                        {item.ImageURL ? (
+                          <img src={item.ImageURL} alt={item.Title} className="w-10 h-10 rounded-lg object-cover border border-gray-100" />
+                        ) : (
+                          <div className="w-10 h-10 rounded-lg bg-[#e8f0e0] flex items-center justify-center text-lg">🫙</div>
+                        )}
+                        <div>
+                          <p className="font-semibold text-gray-800">{item.Title}</p>
+                          {item.Description && (
+                            <p className="text-gray-400 text-xs mt-0.5 line-clamp-1 max-w-[200px]">{item.Description}</p>
+                          )}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-5 py-4 hidden md:table-cell text-gray-700 font-medium">
+                      ${item.UnitPrice?.toFixed(2)}
+                    </td>
+                    <td className="px-5 py-4 hidden md:table-cell text-gray-500">
+                      {item.WholesalePrice ? `$${item.WholesalePrice.toFixed(2)}` : '—'}
+                    </td>
+                    <td className="px-5 py-4">
+                      <span className={`font-semibold ${item.QuantityAvailable <= 5 ? 'text-amber-600' : 'text-gray-700'}`}>
+                        {item.QuantityAvailable}
+                      </span>
+                    </td>
+                    <td className="px-5 py-4">
+                      <StatusBadge item={item} />
+                    </td>
+                    <td className="px-5 py-4 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => toggleVisibility(item)}
+                          className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors"
+                        >
+                          {item.IsActive ? 'Hide' : 'Show'}
+                        </button>
+                        <button
+                          onClick={() => openEdit(item)}
+                          className="text-xs px-3 py-1.5 rounded-lg bg-[#819360] text-white hover:bg-[#6a7a4f] transition-colors font-medium"
+                        >
+                          Edit
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Add/Edit Modal */}
+      {showModal && editing && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 px-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="bg-[#819360] px-6 py-5 rounded-t-2xl">
+              <h2 className="text-white font-bold text-lg font-lora">
+                {editing.ProcessedFoodID ? 'Edit Item' : 'Add New Item'}
+              </h2>
             </div>
-          )}
+            <form onSubmit={handleSave} className="px-6 py-6 space-y-4">
+              {formError && (
+                <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm">
+                  {formError}
+                </div>
+              )}
 
-          <form onSubmit={handleAdd}>
-            {/* Item Name — full width row */}
-            <div className="mb-3">
-              <label className={labelCls}>Item Name</label>
-              <input
-                type="text"
-                value={addForm.Name}
-                onChange={e => setAddForm(f => ({ ...f, Name: e.target.value }))}
-                className={inputCls}
-                required
-                maxLength={100}
-                placeholder="e.g. Strawberry Jam"
-              />
-            </div>
-
-            {/* Rest of fields in a row */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 items-end">
-
-              {/* Category */}
               <div>
-                <label className={labelCls}>Category</label>
-                <select
-                  value={addForm.ProcessedFoodCategoryID}
-                  onChange={e => setAddForm(f => ({ ...f, ProcessedFoodCategoryID: e.target.value }))}
-                  className={inputCls}
-                  required
-                >
-                  <option value="">Select category</option>
-                  {categories.map(c => (
-                    <option key={c.ProcessedFoodCategoryID} value={c.ProcessedFoodCategoryID}>
-                      {c.CategoryName}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Quantity */}
-              <div>
-                <label className={labelCls}># Available</label>
+                <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">Name *</label>
                 <input
-                  type="number"
-                  value={addForm.Quantity}
-                  onChange={e => setAddForm(f => ({ ...f, Quantity: e.target.value }))}
-                  className={inputCls}
-                  min="0"
+                  required
+                  value={editing.Name}
+                  onChange={e => setEditing(p => ({ ...p, Name: e.target.value }))}
+                  placeholder="e.g. Strawberry Jam, Hot Sauce..."
+                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#819360] focus:ring-2 focus:ring-[#819360]/20"
                 />
               </div>
 
-              {/* Wholesale */}
               <div>
-                <label className={labelCls}>Wholesale (USD)</label>
-                <div className="flex items-center border border-gray-300 rounded overflow-hidden focus-within:border-[#819360]">
-                  <span className="px-2 text-gray-400 text-sm bg-gray-50 border-r border-gray-300">$</span>
+                <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">Description</label>
+                <textarea
+                  value={editing.Description}
+                  onChange={e => setEditing(p => ({ ...p, Description: e.target.value }))}
+                  rows={3}
+                  placeholder="Ingredients, flavor notes, size..."
+                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#819360] focus:ring-2 focus:ring-[#819360]/20 resize-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">Retail Price *</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+                    <input
+                      required type="number" min="0" step="0.01"
+                      value={editing.RetailPrice}
+                      onChange={e => setEditing(p => ({ ...p, RetailPrice: e.target.value }))}
+                      placeholder="0.00"
+                      className="w-full border border-gray-200 rounded-xl pl-7 pr-4 py-2.5 text-sm focus:outline-none focus:border-[#819360] focus:ring-2 focus:ring-[#819360]/20"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">Wholesale Price</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+                    <input
+                      type="number" min="0" step="0.01"
+                      value={editing.WholesalePrice}
+                      onChange={e => setEditing(p => ({ ...p, WholesalePrice: e.target.value }))}
+                      placeholder="0.00"
+                      className="w-full border border-gray-200 rounded-xl pl-7 pr-4 py-2.5 text-sm focus:outline-none focus:border-[#819360] focus:ring-2 focus:ring-[#819360]/20"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">Quantity *</label>
                   <input
-                    type="number"
-                    value={addForm.WholesalePrice}
-                    onChange={e => setAddForm(f => ({ ...f, WholesalePrice: e.target.value }))}
-                    className="px-2 py-1.5 text-sm focus:outline-none w-full"
-                    step="0.01" min="0"
+                    required type="number" min="0" step="1"
+                    value={editing.Quantity}
+                    onChange={e => setEditing(p => ({ ...p, Quantity: e.target.value }))}
+                    placeholder="0"
+                    className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#819360] focus:ring-2 focus:ring-[#819360]/20"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">Available Date</label>
+                  <input
+                    type="date"
+                    value={editing.AvailableDate}
+                    onChange={e => setEditing(p => ({ ...p, AvailableDate: e.target.value }))}
+                    className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#819360] focus:ring-2 focus:ring-[#819360]/20"
                   />
                 </div>
               </div>
 
-              {/* Retail */}
               <div>
-                <label className={labelCls}>Retail (USD)</label>
-                <div className="flex items-center border border-gray-300 rounded overflow-hidden focus-within:border-[#819360]">
-                  <span className="px-2 text-gray-400 text-sm bg-gray-50 border-r border-gray-300">$</span>
-                  <input
-                    type="number"
-                    value={addForm.RetailPrice}
-                    onChange={e => setAddForm(f => ({ ...f, RetailPrice: e.target.value }))}
-                    className="px-2 py-1.5 text-sm focus:outline-none w-full"
-                    step="0.01" min="0"
-                  />
-                </div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">Image URL</label>
+                <input
+                  type="url"
+                  value={editing.ImageURL}
+                  onChange={e => setEditing(p => ({ ...p, ImageURL: e.target.value }))}
+                  placeholder="https://..."
+                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#819360] focus:ring-2 focus:ring-[#819360]/20"
+                />
               </div>
 
-            </div>
+              <div className="flex items-center gap-3 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setEditing(p => ({ ...p, ShowProcessedFood: !p.ShowProcessedFood }))}
+                  className={`relative w-11 h-6 rounded-full transition-colors ${editing.ShowProcessedFood ? 'bg-[#819360]' : 'bg-gray-300'}`}
+                >
+                  <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${editing.ShowProcessedFood ? 'translate-x-5' : 'translate-x-0'}`} />
+                </button>
+                <span className="text-sm text-gray-600 font-medium">
+                  {editing.ShowProcessedFood ? 'Visible in marketplace' : 'Hidden from marketplace'}
+                </span>
+              </div>
 
-            <div className="flex justify-end mt-4">
-              <button type="submit" disabled={adding} className="regsubmit2" style={{ minWidth: '180px' }}>
-                {adding ? 'Adding...' : 'Add Processed Food'}
-              </button>
-            </div>
-          </form>
-        </div>
-
-        {/* ── INVENTORY TABLE ── */}
-        <div className="bg-white rounded-2xl shadow border border-gray-200 overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-100">
-            <h2 className="text-lg font-bold text-gray-800">Inventory</h2>
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button" onClick={closeModal}
+                  className="flex-1 border border-gray-200 text-gray-600 font-semibold py-2.5 rounded-xl text-sm hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit" disabled={saving}
+                  className="flex-1 bg-[#819360] hover:bg-[#6a7a4f] text-white font-semibold py-2.5 rounded-xl text-sm transition-colors disabled:opacity-60"
+                >
+                  {saving ? 'Saving...' : (editing.ProcessedFoodID ? 'Save Changes' : 'Add Item')}
+                </button>
+              </div>
+            </form>
           </div>
-
-          {loadingInventory ? (
-            <div className="text-center py-12 text-gray-400">Loading inventory...</div>
-          ) : inventory.length === 0 ? (
-            <div className="text-center py-12 text-gray-400">You do not currently have any processed foods listed.</div>
-          ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ backgroundColor: '#F3F4F6' }}>
-                  {['Processed Food', 'Category', 'Wholesale', 'Retail', 'Qty', 'Available', 'Display', 'Options'].map(h => (
-                    <th key={h} style={{ padding: '0.6rem 0.75rem', textAlign: 'left', fontSize: '0.72rem', fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid #E5E7EB' }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {inventory.map((item, i) => {
-                  const isEditing = !!editRows[item.ProcessedFoodID];
-                  const row = editRows[item.ProcessedFoodID] || {};
-                  return (
-                    <tr key={item.ProcessedFoodID} style={{ backgroundColor: i % 2 === 0 ? '#fff' : '#fafafa', borderBottom: '1px solid #F3F4F6' }}>
-
-                      {/* Name */}
-                      <td style={{ padding: '0.6rem 0.75rem', fontSize: '0.85rem', fontWeight: 600, color: '#374151' }}>
-                        {item.Name}
-                      </td>
-
-                      {/* Category */}
-                      <td style={{ padding: '0.6rem 0.75rem', fontSize: '0.82rem', color: '#6B7280' }}>
-                        {item.CategoryName}
-                      </td>
-
-                      {/* Wholesale */}
-                      <td style={{ padding: '0.5rem 0.75rem' }}>
-                        {isEditing ? (
-                          <div className="flex items-center border border-gray-300 rounded overflow-hidden" style={{ maxWidth: '90px' }}>
-                            <span className="px-1 text-gray-400 text-xs bg-gray-50 border-r border-gray-300">$</span>
-                            <input type="number" value={row.WholesalePrice} onChange={e => updateEditRow(item.ProcessedFoodID, 'WholesalePrice', e.target.value)} className="px-1.5 py-1 text-xs focus:outline-none w-full" step="0.01" />
-                          </div>
-                        ) : (
-                          <span className="text-sm text-gray-700">${parseFloat(item.WholesalePrice || 0).toFixed(2)}</span>
-                        )}
-                      </td>
-
-                      {/* Retail */}
-                      <td style={{ padding: '0.5rem 0.75rem' }}>
-                        {isEditing ? (
-                          <div className="flex items-center border border-gray-300 rounded overflow-hidden" style={{ maxWidth: '90px' }}>
-                            <span className="px-1 text-gray-400 text-xs bg-gray-50 border-r border-gray-300">$</span>
-                            <input type="number" value={row.RetailPrice} onChange={e => updateEditRow(item.ProcessedFoodID, 'RetailPrice', e.target.value)} className="px-1.5 py-1 text-xs focus:outline-none w-full" step="0.01" />
-                          </div>
-                        ) : (
-                          <span className="text-sm text-gray-700">${parseFloat(item.RetailPrice || 0).toFixed(2)}</span>
-                        )}
-                      </td>
-
-                      {/* Quantity */}
-                      <td style={{ padding: '0.5rem 0.75rem' }}>
-                        {isEditing ? (
-                          <input type="number" value={row.Quantity} onChange={e => updateEditRow(item.ProcessedFoodID, 'Quantity', e.target.value)} className="border border-gray-300 rounded px-1.5 py-1 text-xs focus:outline-none" style={{ width: '60px' }} />
-                        ) : (
-                          <span className="text-sm text-gray-700">{item.Quantity}</span>
-                        )}
-                      </td>
-
-                      {/* Available Date */}
-                      <td style={{ padding: '0.5rem 0.75rem' }}>
-                        {isEditing ? (
-                          <input type="date" value={row.AvailableDate} onChange={e => updateEditRow(item.ProcessedFoodID, 'AvailableDate', e.target.value)} className="border border-gray-300 rounded px-1.5 py-1 text-xs focus:outline-none" />
-                        ) : (
-                          <span className="text-sm text-gray-700">{item.AvailableDate ? item.AvailableDate.split('T')[0] : '—'}</span>
-                        )}
-                      </td>
-
-                      {/* Show checkbox */}
-                      <td style={{ padding: '0.5rem 0.75rem', textAlign: 'center' }}>
-                        {isEditing ? (
-                          <input type="checkbox" checked={row.ShowProcessedFood == 1} onChange={e => updateEditRow(item.ProcessedFoodID, 'ShowProcessedFood', e.target.checked ? 1 : 0)} />
-                        ) : (
-                          <span>{item.ShowProcessedFood ? '✓' : '—'}</span>
-                        )}
-                      </td>
-
-                      {/* Actions */}
-                      <td style={{ padding: '0.5rem 0.75rem' }}>
-                        <div className="flex items-center gap-2">
-                          {isEditing ? (
-                            <>
-                              <button onClick={() => handleUpdate(item.ProcessedFoodID)} disabled={savingRow === item.ProcessedFoodID} className="text-xs bg-[#3D6B34] text-white px-2 py-1 rounded hover:bg-[#2e5227] transition-colors disabled:opacity-50">
-                                {savingRow === item.ProcessedFoodID ? '...' : 'Save'}
-                              </button>
-                              <button onClick={() => setEditRows(prev => { const n = { ...prev }; delete n[item.ProcessedFoodID]; return n; })} className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded border border-gray-300">
-                                Cancel
-                              </button>
-                            </>
-                          ) : (
-                            <>
-                              <button onClick={() => startEdit(item)} title="Edit">
-                                <img src="/images/edit.svg" alt="Edit" width="20" onError={e => { e.target.style.display='none'; e.target.insertAdjacentText('afterend','✏️'); }} />
-                              </button>
-                              <span className="text-gray-300">|</span>
-                              <button onClick={() => handleDelete(item.ProcessedFoodID)} disabled={deletingRow === item.ProcessedFoodID} title="Delete">
-                                <img src="/images/delete.svg" alt="Delete" width="20" onError={e => { e.target.style.display='none'; e.target.insertAdjacentText('afterend','🗑️'); }} />
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      </td>
-
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          )}
         </div>
-
-      </div>
-    </AccountLayout>
+      )}
+    </div>
   );
 }
