@@ -536,6 +536,7 @@ export default function CropDetection() {
   const drawnPointsRef = useRef([]);
   const drawMarkersRef = useRef([]);
   const drawLineSourceRef = useRef(null);
+  const bodyOverflowRef = useRef(null);
 
   useEffect(() => { if (BusinessID) LoadBusiness(BusinessID); }, [BusinessID]);
 
@@ -608,23 +609,37 @@ export default function CropDetection() {
   }, [drawMode]);
 
   useEffect(() => {
-    if (!isFullScreen) return;
+    if (!isFullScreen) {
+      if (bodyOverflowRef.current !== null) {
+        document.body.style.overflow = bodyOverflowRef.current;
+        bodyOverflowRef.current = null;
+      }
+      return;
+    }
     const onKeyDown = (e) => {
       if (e.key === 'Escape') setIsFullScreen(false);
     };
-    const prevOverflow = document.body.style.overflow;
+    if (bodyOverflowRef.current === null) bodyOverflowRef.current = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     window.addEventListener('keydown', onKeyDown);
     return () => {
-      document.body.style.overflow = prevOverflow;
       window.removeEventListener('keydown', onKeyDown);
     };
   }, [isFullScreen]);
 
   useEffect(() => {
+    return () => {
+      if (bodyOverflowRef.current !== null) {
+        document.body.style.overflow = bodyOverflowRef.current;
+        bodyOverflowRef.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     if (!map.current) return;
-    const id = window.setTimeout(() => map.current?.resize(), 0);
-    return () => window.clearTimeout(id);
+    const id = window.requestAnimationFrame(() => map.current?.resize());
+    return () => window.cancelAnimationFrame(id);
   }, [isFullScreen]);
 
   // ─── Draw helpers ─────────────────────────────────────────────────────────
@@ -1122,13 +1137,26 @@ export default function CropDetection() {
               background: 'white',
               color: '#374151',
               cursor: 'pointer',
-              fontSize: 16,
               display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
             }}
           >
-            {isFullScreen ? '🗗' : '⛶'}
+            {isFullScreen ? (
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M8 3H5a2 2 0 0 0-2 2v3" />
+                <path d="M16 3h3a2 2 0 0 1 2 2v3" />
+                <path d="M8 21H5a2 2 0 0 1-2-2v-3" />
+                <path d="M16 21h3a2 2 0 0 0 2-2v-3" />
+              </svg>
+            ) : (
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M15 3h6v6" />
+                <path d="M9 21H3v-6" />
+                <path d="M21 3l-7 7" />
+                <path d="M3 21l7-7" />
+              </svg>
+            )}
           </button>
         </div>
 
