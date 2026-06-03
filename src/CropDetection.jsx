@@ -513,6 +513,7 @@ export default function CropDetection() {
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [fieldData, setFieldData] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [isFullScreen, setIsFullScreen] = useState(false);
 
   // ─── Field Drawing State ───────────────────────────────────────────────────
   const [drawMode, setDrawMode] = useState(false);           // actively drawing
@@ -605,6 +606,26 @@ export default function CropDetection() {
       map.current.getCanvas().style.cursor = drawMode ? 'crosshair' : '';
     }
   }, [drawMode]);
+
+  useEffect(() => {
+    if (!isFullScreen) return;
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape') setIsFullScreen(false);
+    };
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [isFullScreen]);
+
+  useEffect(() => {
+    if (!map.current) return;
+    const id = window.setTimeout(() => map.current?.resize(), 0);
+    return () => window.clearTimeout(id);
+  }, [isFullScreen]);
 
   // ─── Draw helpers ─────────────────────────────────────────────────────────
   const clearDrawing = useCallback(() => {
@@ -1069,7 +1090,17 @@ export default function CropDetection() {
 
   return (
     <AccountLayout Business={Business} BusinessID={BusinessID} PeopleID={PeopleID} pageTitle={t('crop_detection.page_title')} breadcrumbs={[{ label: t('nav.dashboard'), to: '/dashboard' }, { label: t('crop_detection.breadcrumb_crops') }, { label: t('crop_detection.breadcrumb_detection') }]}>
-      <div style={{ margin: '-24px', display: 'flex', flexDirection: 'column' }}>
+      <div style={{
+        margin: isFullScreen ? 0 : '-24px',
+        display: 'flex',
+        flexDirection: 'column',
+        ...(isFullScreen ? {
+          position: 'fixed',
+          inset: 0,
+          zIndex: 9998,
+          background: '#fff',
+        } : {}),
+      }}>
 
         {/* Title bar */}
         <div style={{ padding: '12px 24px', background: 'white', borderBottom: '1px solid #e8e0d5', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
@@ -1078,10 +1109,36 @@ export default function CropDetection() {
             <div style={{ fontFamily: 'Georgia,serif', fontWeight: 700, fontSize: 17, color: '#2c1a0e' }}>{t('crop_detection.heading')}</div>
             <div style={{ fontSize: 12, color: '#8b7355' }}>{t('crop_detection.subtitle')}</div>
           </div>
+          <button
+            onClick={() => setIsFullScreen(v => !v)}
+            title={isFullScreen ? 'Exit full-screen' : 'Enter full-screen'}
+            aria-label={isFullScreen ? 'Exit full-screen' : 'Enter full-screen'}
+            style={{
+              marginLeft: 'auto',
+              width: 34,
+              height: 34,
+              borderRadius: 8,
+              border: '1px solid #d1d5db',
+              background: 'white',
+              color: '#374151',
+              cursor: 'pointer',
+              fontSize: 16,
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            {isFullScreen ? '🗗' : '⛶'}
+          </button>
         </div>
 
         {/* Map area */}
-        <div style={{ position: 'relative', height: 'calc(100vh - 170px)', minHeight: 480 }}>
+        <div style={{
+          position: 'relative',
+          height: isFullScreen ? 'auto' : 'calc(100vh - 170px)',
+          minHeight: isFullScreen ? 0 : 480,
+          flex: isFullScreen ? 1 : 'none',
+        }}>
 
           {/* Add-Field mode tooltip */}
           {showAddFieldHint && (

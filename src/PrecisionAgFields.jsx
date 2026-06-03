@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useSearchParams, useNavigate, Link } from 'react-router-dom';
+import { useSearchParams, Link } from 'react-router-dom';
 const IcoEdit = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>;
 const IcoDel  = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>;
 import AccountLayout from './AccountLayout';
@@ -984,7 +984,6 @@ function FieldList({ businessId, onCreateNew }) {
   const [openBiomass, setOpenBiomass] = useState(() => new Set());
   const [showMoon, setShowMoon] = useState(false);
   const [nlQuery, setNlQuery] = useState('');
-  const navigate = useNavigate();
 
   const toggleBiomass = (id) => {
     setOpenBiomass((prev) => {
@@ -1081,7 +1080,7 @@ function FieldList({ businessId, onCreateNew }) {
             {showMoon ? '🌑' : '🌕'}
           </button>
           <button
-            onClick={() => navigate(`/precision-ag/crop-detection?BusinessID=${businessId}&mode=add-field`)}
+            onClick={onCreateNew}
             className="text-sm font-semibold text-[#3D6B34] hover:underline bg-transparent border-0 p-0 cursor-pointer"
           >
             + Add Field
