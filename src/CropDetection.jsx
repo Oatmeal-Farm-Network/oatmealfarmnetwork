@@ -1126,8 +1126,12 @@ export default function CropDetection() {
           </div>
           <button
             onClick={() => setIsFullScreen(v => !v)}
-            title={isFullScreen ? 'Exit full-screen' : 'Enter full-screen'}
-            aria-label={isFullScreen ? 'Exit full-screen' : 'Enter full-screen'}
+            title={isFullScreen
+              ? t('crop_detection.btn_exit_fullscreen', { defaultValue: 'Exit full-screen' })
+              : t('crop_detection.btn_fullscreen', { defaultValue: 'Enter full-screen' })}
+            aria-label={isFullScreen
+              ? t('crop_detection.btn_exit_fullscreen', { defaultValue: 'Exit full-screen' })
+              : t('crop_detection.btn_fullscreen', { defaultValue: 'Enter full-screen' })}
             style={{
               marginLeft: 'auto',
               width: 34,
