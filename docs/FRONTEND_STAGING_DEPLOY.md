@@ -59,6 +59,8 @@ Do **not** rely on `.env.production` for staging — those URLs are production.
 
 Backend CORS must allow this frontend origin (done on `GCP/backend-staging`).
 
+**Platform hostnames:** staging Cloud Run hosts must be listed in `OFN_HOSTS` (`src/main.jsx`, `src/WebsitePublic.jsx`). Otherwise the app treats `*.run.app` as a farm custom domain and shows “Site Not Found”.
+
 ---
 
 ## GitHub secrets (this frontend repo)

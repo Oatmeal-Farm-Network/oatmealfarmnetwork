@@ -587,9 +587,20 @@ function AccountEventsRedirect() {
 }
 
 // Custom domains (not OFN or localhost) get the full public site renderer for every path.
-const OFN_HOSTS = ['oatmealfarmnetwork.com', 'www.oatmealfarmnetwork.com', 'localhost', '127.0.0.1'];
-const isCustomDomain = !OFN_HOSTS.some(
-  h => window.location.hostname === h || window.location.hostname.endsWith(`.${h}`)
+const OFN_HOSTS = [
+  'oatmealfarmnetwork.com',
+  'www.oatmealfarmnetwork.com',
+  'localhost',
+  '127.0.0.1',
+  // Staging Cloud Run (both URL forms)
+  'oatmeal-frontend-staging-1087130530284.us-central1.run.app',
+  'oatmeal-frontend-staging-lrviw4iujq-uc.a.run.app',
+];
+const isCustomDomain = !(
+  OFN_HOSTS.some(
+    h => window.location.hostname === h || window.location.hostname.endsWith(`.${h}`)
+  )
+  || window.location.hostname.startsWith('oatmeal-frontend-staging')
 );
 
 // Register the unified service worker (push + offline + bg-sync) on first paint.
