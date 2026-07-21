@@ -55,8 +55,6 @@ const resolveHeroSrc = (speciesInfo, species) => {
   return '/images/HomepageLivestockDB.webp';
 };
 
-const EAGER_COUNT = 4;
-
 export default function LivestockSpecies() {
   const { t } = useTranslation();
   const { species } = useParams();
@@ -253,8 +251,7 @@ export default function LivestockSpecies() {
           <div className="text-gray-400 py-8 text-center">{t('livestock_species.no_breeds')}</div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            {breeds.map((b, index) => {
-              const imgSrc = getImageSrc(b.image);
+            {breeds.map((b) => {
               const shortDesc = b.description
                 ? b.description.replace(/<[^>]+>/g, '').substring(0, 220) + (b.description.length > 220 ? '…' : '')
                 : null;
@@ -268,20 +265,8 @@ export default function LivestockSpecies() {
                     className="shrink-0 overflow-hidden bg-gray-100 flex items-center justify-center"
                     style={{ width: '155px', height: '155px' }}
                   >
-                    {imgSrc ? (
-                      <img
-                        src={imgSrc}
-                        alt={b.breed}
-                        width="155"
-                        height="155"
-                        loading={index < EAGER_COUNT ? 'eager' : 'lazy'}
-                        decoding={index < EAGER_COUNT ? 'sync' : 'async'}
-                        className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
-                        onError={e => { e.target.parentElement.classList.add('hidden'); }}
-                      />
-                    ) : (
-                      <span className="text-gray-300 text-xs text-center px-3">{t('livestock_species.no_image')}</span>
-                    )}
+                    {/* Images forced off until breed image URLs are populated from DB */}
+                    <span className="text-gray-300 text-xs text-center px-3">{t('livestock_species.no_image')}</span>
                   </Link>
 
                   <div className="flex flex-col justify-between px-5 py-4 flex-1 min-w-0">
