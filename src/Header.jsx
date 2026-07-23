@@ -259,15 +259,29 @@ const Header = () => {
     </svg>
   );
 
+  const LORA = "'Lora', 'Times New Roman', serif";
+  const guestLinkClass =
+    'no-underline transition-opacity hover:opacity-85 text-[14px] xl:text-[15px]';
+  const guestLinkStyle = { color: '#ffffff', fontFamily: LORA };
+  const appLinkStyle = { color: '#ffffff' };
+  // Logged-out: simple marketing nav on every page. Logged-in: full app nav.
+  const isGuest = !isLoggedIn;
+  const headerBg = '#8b3a2b';
+
   return (
-    <nav className="bg-[#A3301E] py-3 px-4 shadow-2xl sticky top-0 z-10000 font-montserrat">
-      <div className="max-w-350 mx-auto flex justify-between items-center">
+    <nav
+      className={`relative py-3.5 px-5 md:px-8 shadow-md sticky top-0 z-10000 ${isGuest ? '' : 'font-montserrat'}`}
+      style={{ backgroundColor: headerBg }}
+    >
+      <div
+        className={`mx-auto flex justify-between items-center gap-4 ${isGuest ? 'max-w-[1400px]' : 'max-w-[1400px]'}`}
+      >
 
         {/* Logo */}
         <Link to={isLoggedIn ? "/dashboard" : "/"} className="flex items-center shrink-0">
           <img
             src="/images/Oatmeal-Farm-Network-logo-horizontal-white.webp"
-            className="h-10 md:h-12"
+            className="h-11 md:h-[52px]"
             alt="Oatmeal Farm Network"
             width="160"
             height="40"
@@ -275,242 +289,269 @@ const Header = () => {
           />
         </Link>
 
-        {/* Desktop Navigation */}
-        <div className="hidden lg:flex flex-grow justify-center">
-          <ul className="flex space-x-7 text-xs font-normal items-center">
-
-            {isLoggedIn ? (
-              <>
-                {nav('dashboard') && <li><Link to="/dashboard" className="nav-link">{t('nav.dashboard')}</Link></li>}
-                {nav('directory') && <li><Link to="/directory" className="nav-link">{t('nav.directory')}</Link></li>}
-              </>
-            ) : (
-              <>
-                {nav('home')      && <li><Link to="/" className="nav-link">{t('nav.home')}</Link></li>}
-                {nav('directory') && <li><Link to="/directory" className="nav-link">{t('nav.directory')}</Link></li>}
-              </>
-            )}
-
-            {/* Marketplaces dropdown */}
-            {nav('marketplaces') && (
-              <li className="relative" ref={mktRef} onMouseEnter={() => setMktOpen(true)} onMouseLeave={() => setMktOpen(false)}>
-                <button onClick={() => setMktOpen(!mktOpen)} className="nav-link flex items-center gap-1 focus:outline-none">
-                  {t('nav.marketplaces')} <ChevronIcon open={mktOpen} />
-                </button>
-                {mktOpen && <MktDropdown />}
-              </li>
-            )}
-
-            {/* Services dropdown */}
-            {nav('services') && (
-              <li className="relative" ref={svcRef} onMouseEnter={() => setSvcOpen(true)} onMouseLeave={() => setSvcOpen(false)}>
-                <button onClick={() => setSvcOpen(!svcOpen)} className="nav-link flex items-center gap-1 focus:outline-none">
-                  {t('nav.services')} <ChevronIcon open={svcOpen} />
-                </button>
-                {svcOpen && <SvcDropdown />}
-              </li>
-            )}
-
-            {/* AI Advisors dropdown */}
-            {nav('ai_advisors') && (
-              <li className="relative" ref={aiRef} onMouseEnter={() => setAiOpen(true)} onMouseLeave={() => setAiOpen(false)}>
-                <button onClick={() => setAiOpen(!aiOpen)} className="nav-link flex items-center gap-1 focus:outline-none">
-                  {t('nav.ai_advisors', 'AI Advisors')} <ChevronIcon open={aiOpen} />
-                </button>
-                {aiOpen && <AiDropdown />}
-              </li>
-            )}
-
-            {/* Newsroom dropdown */}
-            {nav('newsroom') && (
-              <li className="relative" ref={nrRef} onMouseEnter={() => setNrOpen(true)} onMouseLeave={() => setNrOpen(false)}>
-                <button onClick={() => setNrOpen(!nrOpen)} className="nav-link flex items-center gap-1 focus:outline-none">
-                  {t('nav.newsroom')} <ChevronIcon open={nrOpen} />
-                </button>
-                {nrOpen && <NrDropdown />}
-              </li>
-            )}
-
-            {/* Knowledgebases dropdown */}
-            {nav('knowledgebases') && (
-              <li className="relative" ref={kbRef} onMouseEnter={() => setKbOpen(true)} onMouseLeave={() => setKbOpen(false)}>
-                <button onClick={() => setKbOpen(!kbOpen)} className="nav-link flex items-center gap-1 focus:outline-none">
-                  {t('nav.knowledgebases')} <ChevronIcon open={kbOpen} />
-                </button>
-                {kbOpen && <KbDropdown />}
-              </li>
-            )}
-
-            {isLoggedIn ? (
-              <>
-                {nav('contact') && <li><Link to="/contact-us" className="nav-link">{t('nav.contact')}</Link></li>}
-                <li className="flex items-center gap-3">
-                  <CartBell />
-                  <NotificationBell />
-                  <LanguageSelector />
-                  {/* Personal Settings dropdown */}
-                  <div className="relative" ref={psRef}>
-                    <button
-                      onClick={() => setPsOpen(o => !o)}
-                      onMouseEnter={() => setPsOpen(true)}
-                      title="Personal Settings"
-                      className="text-white/80 hover:text-white transition-colors flex items-center"
+        {/* Guest nav — Home, Directory, Knowledgebases, Marketplaces, Saige, Contact, Login */}
+        {isGuest ? (
+          <>
+            <div
+              className="hidden md:flex items-center ml-auto shrink-0"
+              style={{ gap: '1.75rem' }}
+            >
+              {[
+                { to: '/', label: t('nav.home') },
+                { to: '/directory', label: t('nav.directory') },
+                { to: '/knowledgebases', label: t('nav.knowledgebases') },
+                { to: '/marketplaces', label: t('nav.marketplaces') },
+                { to: '/platform/saige', label: t('nav.saige', 'Saige') },
+                { to: '/contact-us', label: t('nav.contact') },
+                { to: '/login', label: t('nav.login') },
+              ].map((item) => (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  className={guestLinkClass}
+                  style={{ ...guestLinkStyle, whiteSpace: 'nowrap', display: 'inline-block' }}
+                >
+                  {item.label}
+                </Link>
+              ))}
+            </div>
+            <div className="md:hidden flex justify-end ml-auto">
+              <button onClick={() => setIsOpen(!isOpen)} className="text-white text-3xl focus:outline-none" type="button" aria-label="Menu">
+                {isOpen ? '✕' : '☰'}
+              </button>
+            </div>
+            {isOpen && (
+              <div
+                className="md:hidden absolute top-full left-0 w-full border-t border-white/10 shadow-xl z-50"
+                style={{ backgroundColor: '#8b3a2b' }}
+              >
+                <div className="flex flex-col p-6 gap-4 text-base font-normal text-center">
+                  {[
+                    { to: '/', label: t('nav.home') },
+                    { to: '/directory', label: t('nav.directory') },
+                    { to: '/knowledgebases', label: t('nav.knowledgebases') },
+                    { to: '/marketplaces', label: t('nav.marketplaces') },
+                    { to: '/platform/saige', label: t('nav.saige', 'Saige') },
+                    { to: '/contact-us', label: t('nav.contact') },
+                    { to: '/login', label: t('nav.login') },
+                  ].map((item) => (
+                    <Link
+                      key={item.to}
+                      to={item.to}
+                      onClick={() => setIsOpen(false)}
+                      className="block"
+                      style={guestLinkStyle}
                     >
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                        <circle cx="12" cy="12" r="3"/>
-                        <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
-                      </svg>
-                    </button>
-                    {psOpen && (
-                      <div
-                        className="absolute right-0 top-full pt-2 w-52 z-10000"
-                        onMouseLeave={() => setPsOpen(false)}
-                      >
-                        <div className="bg-white rounded shadow-lg overflow-hidden">
-                          <Link to="/account/settings" onClick={() => setPsOpen(false)} className="block px-3 py-2 text-xs text-gray-700 hover:bg-gray-100">Login &amp; Account</Link>
-                          <Link to="/account/settings?tab=audio" onClick={() => setPsOpen(false)} className="block px-3 py-2 text-xs text-gray-700 hover:bg-gray-100">Language &amp; Audio Settings</Link>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  <button
-                    onClick={handleLogout}
-                    title={t('nav.log_out')}
-                    className="text-white/80 hover:text-white transition-colors flex items-center"
-                  >
-                    <LogoutIcon />
-                  </button>
-                </li>
-              </>
-            ) : (
-              <>
-                {nav('about')   && <li><Link to="/about"      className="nav-link">{t('nav.about')}</Link></li>}
-                {nav('contact') && <li><Link to="/contact-us" className="nav-link">{t('nav.contact')}</Link></li>}
-                {nav('signup')  && <li><Link to="/signup"     className="nav-link">{t('nav.signup')}</Link></li>}
-                <li className="flex items-center gap-3">
-                  <LanguageSelector />
-                  <Link
-                    to="/login"
-                    title={t('nav.login')}
-                    className="flex items-center transition-colors"
-                    style={{ color: 'rgba(255,255,255,0.8)' }}
-                  >
-                    <LoginIcon />
-                  </Link>
-                </li>
-              </>
+                      {item.label}
+                    </Link>
+                  ))}
+                </div>
+              </div>
             )}
-          </ul>
+          </>
+        ) : (
+          <>
+        {/* Desktop Navigation (logged in) */}
+        <div
+          className="hidden xl:flex flex-1 items-center justify-center min-w-0"
+          style={{ gap: '1.25rem' }}
+        >
+          {nav('dashboard') && (
+            <Link to="/dashboard" className="nav-link text-xs whitespace-nowrap" style={appLinkStyle}>
+              {t('nav.dashboard')}
+            </Link>
+          )}
+          {nav('directory') && (
+            <Link to="/directory" className="nav-link text-xs whitespace-nowrap" style={appLinkStyle}>
+              {t('nav.directory')}
+            </Link>
+          )}
+
+          {nav('marketplaces') && (
+            <div className="relative shrink-0" ref={mktRef} onMouseEnter={() => setMktOpen(true)} onMouseLeave={() => setMktOpen(false)}>
+              <button onClick={() => setMktOpen(!mktOpen)} className="nav-link flex items-center gap-1 focus:outline-none text-xs whitespace-nowrap" style={appLinkStyle}>
+                {t('nav.marketplaces')} <ChevronIcon open={mktOpen} />
+              </button>
+              {mktOpen && <MktDropdown />}
+            </div>
+          )}
+
+          {nav('services') && (
+            <div className="relative shrink-0" ref={svcRef} onMouseEnter={() => setSvcOpen(true)} onMouseLeave={() => setSvcOpen(false)}>
+              <button onClick={() => setSvcOpen(!svcOpen)} className="nav-link flex items-center gap-1 focus:outline-none text-xs whitespace-nowrap" style={appLinkStyle}>
+                {t('nav.services')} <ChevronIcon open={svcOpen} />
+              </button>
+              {svcOpen && <SvcDropdown />}
+            </div>
+          )}
+
+          {nav('ai_advisors') && (
+            <div className="relative shrink-0" ref={aiRef} onMouseEnter={() => setAiOpen(true)} onMouseLeave={() => setAiOpen(false)}>
+              <button onClick={() => setAiOpen(!aiOpen)} className="nav-link flex items-center gap-1 focus:outline-none text-xs whitespace-nowrap" style={appLinkStyle}>
+                {t('nav.ai_advisors', 'AI Advisors')} <ChevronIcon open={aiOpen} />
+              </button>
+              {aiOpen && <AiDropdown />}
+            </div>
+          )}
+
+          {nav('newsroom') && (
+            <div className="relative shrink-0" ref={nrRef} onMouseEnter={() => setNrOpen(true)} onMouseLeave={() => setNrOpen(false)}>
+              <button onClick={() => setNrOpen(!nrOpen)} className="nav-link flex items-center gap-1 focus:outline-none text-xs whitespace-nowrap" style={appLinkStyle}>
+                {t('nav.newsroom')} <ChevronIcon open={nrOpen} />
+              </button>
+              {nrOpen && <NrDropdown />}
+            </div>
+          )}
+
+          {nav('knowledgebases') && (
+            <div className="relative shrink-0" ref={kbRef} onMouseEnter={() => setKbOpen(true)} onMouseLeave={() => setKbOpen(false)}>
+              <button onClick={() => setKbOpen(!kbOpen)} className="nav-link flex items-center gap-1 focus:outline-none text-xs whitespace-nowrap" style={appLinkStyle}>
+                {t('nav.knowledgebases')} <ChevronIcon open={kbOpen} />
+              </button>
+              {kbOpen && <KbDropdown />}
+            </div>
+          )}
+
+          {nav('contact') && (
+            <Link to="/contact-us" className="nav-link text-xs whitespace-nowrap" style={appLinkStyle}>
+              {t('nav.contact')}
+            </Link>
+          )}
         </div>
 
-        {/* Hamburger */}
-        <div className="lg:w-[180px] flex justify-end">
-          <button onClick={() => setIsOpen(!isOpen)} className="lg:hidden text-white text-3xl focus:outline-none" type="button">
+        {/* Utility icons (logged in) */}
+        <div className="hidden xl:flex items-center shrink-0" style={{ gap: '0.75rem' }}>
+          <CartBell />
+          <NotificationBell />
+          <LanguageSelector />
+          <div className="relative" ref={psRef}>
+            <button
+              onClick={() => setPsOpen(o => !o)}
+              onMouseEnter={() => setPsOpen(true)}
+              title="Personal Settings"
+              className="text-white/80 hover:text-white transition-colors flex items-center"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+              </svg>
+            </button>
+            {psOpen && (
+              <div
+                className="absolute right-0 top-full pt-2 w-52 z-10000"
+                onMouseLeave={() => setPsOpen(false)}
+              >
+                <div className="bg-white rounded shadow-lg overflow-hidden">
+                  <Link to="/account/settings" onClick={() => setPsOpen(false)} className="block px-3 py-2 text-xs text-gray-700 hover:bg-gray-100">Login &amp; Account</Link>
+                  <Link to="/account/settings?tab=audio" onClick={() => setPsOpen(false)} className="block px-3 py-2 text-xs text-gray-700 hover:bg-gray-100">Language &amp; Audio Settings</Link>
+                </div>
+              </div>
+            )}
+          </div>
+          <button
+            onClick={handleLogout}
+            title={t('nav.log_out')}
+            className="text-white/80 hover:text-white transition-colors flex items-center"
+          >
+            <LogoutIcon />
+          </button>
+        </div>
+
+        {/* Hamburger (logged in) */}
+        <div className="xl:hidden flex items-center gap-3 ml-auto shrink-0">
+          <div className="flex items-center gap-2">
+            <CartBell />
+            <NotificationBell />
+          </div>
+          <button onClick={() => setIsOpen(!isOpen)} className="text-white text-3xl focus:outline-none" type="button" aria-label="Menu">
             {isOpen ? '✕' : '☰'}
           </button>
         </div>
-      </div>
 
-      {/* Mobile Menu */}
+      {/* Mobile Menu (logged in) */}
       {isOpen && (
-        <div className="lg:hidden bg-[#A3301E] absolute top-full left-0 w-full border-t border-white/10 shadow-xl z-50">
-          <ul className="flex flex-col p-6 space-y-4 text-base font-normal text-center">
+        <div className="xl:hidden absolute top-full left-0 w-full border-t border-white/10 shadow-xl z-50" style={{ backgroundColor: headerBg }}>
+          <div className="flex flex-col p-6 gap-4 text-base font-normal text-center">
 
-            {isLoggedIn ? (
-              <>
-                {nav('dashboard') && <li><Link to="/dashboard" onClick={() => setIsOpen(false)} className="nav-link block">{t('nav.dashboard')}</Link></li>}
-                {nav('directory') && <li><Link to="/directory" onClick={() => setIsOpen(false)} className="nav-link block">{t('nav.directory')}</Link></li>}
-              </>
-            ) : (
-              <>
-                {nav('home')      && <li><Link to="/" onClick={() => setIsOpen(false)} className="!text-white block">{t('nav.home')}</Link></li>}
-                {nav('directory') && <li><Link to="/directory" onClick={() => setIsOpen(false)} className="!text-white block">{t('nav.directory')}</Link></li>}
-              </>
+            {nav('dashboard') && (
+              <Link to="/dashboard" onClick={() => setIsOpen(false)} className="nav-link block" style={appLinkStyle}>
+                {t('nav.dashboard')}
+              </Link>
+            )}
+            {nav('directory') && (
+              <Link to="/directory" onClick={() => setIsOpen(false)} className="nav-link block" style={appLinkStyle}>
+                {t('nav.directory')}
+              </Link>
             )}
 
-            {/* Marketplaces mobile */}
             {nav('marketplaces') && (
-              <li>
-                <button onClick={() => setMktMobileOpen(!mktMobileOpen)} className="!text-white flex items-center justify-center gap-1 w-full">
+              <div>
+                <button onClick={() => setMktMobileOpen(!mktMobileOpen)} className="flex items-center justify-center gap-1 w-full" style={appLinkStyle}>
                   {t('nav.marketplaces')} <ChevronIcon open={mktMobileOpen} />
                 </button>
                 {mktMobileOpen && <MktMobileLinks />}
-              </li>
+              </div>
             )}
 
-            {/* Services mobile */}
             {nav('services') && (
-              <li>
-                <button onClick={() => setSvcMobileOpen(!svcMobileOpen)} className="!text-white flex items-center justify-center gap-1 w-full">
+              <div>
+                <button onClick={() => setSvcMobileOpen(!svcMobileOpen)} className="flex items-center justify-center gap-1 w-full" style={appLinkStyle}>
                   {t('nav.services')} <ChevronIcon open={svcMobileOpen} />
                 </button>
                 {svcMobileOpen && <SvcMobileLinks />}
-              </li>
+              </div>
             )}
 
-            {/* AI Advisors mobile */}
             {nav('ai_advisors') && (
-              <li>
-                <button onClick={() => setAiMobileOpen(!aiMobileOpen)} className="!text-white flex items-center justify-center gap-1 w-full">
+              <div>
+                <button onClick={() => setAiMobileOpen(!aiMobileOpen)} className="flex items-center justify-center gap-1 w-full" style={appLinkStyle}>
                   {t('nav.ai_advisors', 'AI Advisors')} <ChevronIcon open={aiMobileOpen} />
                 </button>
                 {aiMobileOpen && <AiMobileLinks />}
-              </li>
+              </div>
             )}
 
-            {/* Newsroom mobile */}
             {nav('newsroom') && (
-              <li>
-                <button onClick={() => setNrMobileOpen(!nrMobileOpen)} className="!text-white flex items-center justify-center gap-1 w-full">
+              <div>
+                <button onClick={() => setNrMobileOpen(!nrMobileOpen)} className="flex items-center justify-center gap-1 w-full" style={appLinkStyle}>
                   {t('nav.newsroom')} <ChevronIcon open={nrMobileOpen} />
                 </button>
                 {nrMobileOpen && (
-                  <ul className="mt-2 space-y-2 text-sm">
-                    {nav('nr_newsfeed') && <li><Link to="/app/news" onClick={() => setIsOpen(false)} className="!text-white/80 block">{t('nav.newsfeed')}</Link></li>}
-                    {nav('nr_blogs')    && <li><Link to="/blog"     onClick={() => setIsOpen(false)} className="!text-white/80 block">{t('nav.blogs')}</Link></li>}
-                  </ul>
+                  <div className="mt-2 flex flex-col gap-2 text-sm">
+                    {nav('nr_newsfeed') && <Link to="/app/news" onClick={() => setIsOpen(false)} className="block" style={{ color: 'rgba(255,255,255,0.85)' }}>{t('nav.newsfeed')}</Link>}
+                    {nav('nr_blogs')    && <Link to="/blog"     onClick={() => setIsOpen(false)} className="block" style={{ color: 'rgba(255,255,255,0.85)' }}>{t('nav.blogs')}</Link>}
+                  </div>
                 )}
-              </li>
+              </div>
             )}
 
-            {/* Knowledgebases mobile */}
             {nav('knowledgebases') && (
-              <li>
-                <button onClick={() => setKbMobileOpen(!kbMobileOpen)} className="!text-white flex items-center justify-center gap-1 w-full">
+              <div>
+                <button onClick={() => setKbMobileOpen(!kbMobileOpen)} className="flex items-center justify-center gap-1 w-full" style={appLinkStyle}>
                   {t('nav.knowledgebases')} <ChevronIcon open={kbMobileOpen} />
                 </button>
                 {kbMobileOpen && <KbMobileLinks />}
-              </li>
+              </div>
             )}
 
-            {isLoggedIn ? (
-              <>
-                {nav('contact') && <li><Link to="/contact-us" onClick={() => setIsOpen(false)} className="nav-link block">{t('nav.contact')}</Link></li>}
-                <li className="flex items-center justify-center gap-5 pt-1">
-                  <CartBell />
-                  <NotificationBell />
-                  <LanguageSelector />
-                  <button onClick={handleLogout} title={t('nav.log_out')} className="text-white/80 hover:text-white transition-colors flex items-center">
-                    <LogoutIcon />
-                  </button>
-                </li>
-              </>
-            ) : (
-              <>
-                {nav('about')   && <li><Link to="/about"      onClick={() => setIsOpen(false)} className="!text-white block">{t('nav.about')}</Link></li>}
-                {nav('contact') && <li><Link to="/contact-us" onClick={() => setIsOpen(false)} className="!text-white block">{t('nav.contact')}</Link></li>}
-                {nav('signup')  && <li><Link to="/signup"     onClick={() => setIsOpen(false)} className="!text-white block">{t('nav.signup')}</Link></li>}
-                <li className="flex items-center justify-center gap-5 pt-1">
-                  <LanguageSelector />
-                  <Link to="/login" onClick={() => setIsOpen(false)} title={t('nav.login')} className="flex items-center transition-colors" style={{ color: 'rgba(255,255,255,0.8)' }}>
-                    <LoginIcon />
-                  </Link>
-                </li>
-              </>
+            {nav('contact') && (
+              <Link to="/contact-us" onClick={() => setIsOpen(false)} className="nav-link block" style={appLinkStyle}>
+                {t('nav.contact')}
+              </Link>
             )}
-          </ul>
+
+            <div className="flex items-center justify-center gap-5 pt-2">
+              <LanguageSelector />
+              <button onClick={handleLogout} title={t('nav.log_out')} className="text-white/80 hover:text-white transition-colors flex items-center">
+                <LogoutIcon />
+              </button>
+            </div>
+          </div>
         </div>
       )}
+          </>
+        )}
+      </div>
     </nav>
   );
 };

@@ -74,6 +74,12 @@ p.body:last-child {
     margin-bottom: 0;
 }
 
+.home-hero-cta,
+.home-hero-cta:hover {
+  color: #ffffff !important;
+  text-decoration: none;
+}
+
 .nav-link {
   font-family: 'Montserrat', sans-serif;
   color: white;
