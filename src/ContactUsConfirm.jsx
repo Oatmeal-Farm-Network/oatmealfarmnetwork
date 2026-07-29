@@ -26,7 +26,7 @@ export default function ContactUsConfirm() {
       />
       <Header />
       <main className="max-w-2xl mx-auto px-4 py-12">
-        <Breadcrumbs items={[{ label: 'Home', to: '/' }, { label: 'Contact Us', to: '/contact' }, { label: 'Confirmation' }]} />
+        <Breadcrumbs items={[{ label: 'Home', to: '/' }, { label: 'Contact Us', to: '/contact-us' }, { label: 'Confirmation' }]} />
         <section className="bg-white rounded-2xl p-8 md:p-10 shadow-[0_10px_25px_rgba(74,92,67,0.08)] text-center">
           <h1 className="text-3xl font-bold text-[#4A5C43] mb-4">{t('contact.confirm_title')}</h1>
           <p className="text-gray-700 mb-6">{t('contact.confirm_body')}</p>

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { useParams, Link, useSearchParams } from 'react-router-dom';
+import { useParams, Link, useSearchParams, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Header from './Header';
 import Footer from './Footer';
@@ -122,6 +122,12 @@ function Sidebar({ collapsed, onToggle, isStuds }) {
   const { t } = useTranslation();
   const defaultOpen = isStuds ? 'studs' : 'for_sale';
   const [openSections, setOpenSections] = useState({ [defaultOpen]: true });
+
+  // Keep the matching accordion open when switching for-sale <-> studs
+  // without a full remount of LivestockForSale.
+  useEffect(() => {
+    setOpenSections(prev => ({ ...prev, [isStuds ? 'studs' : 'for_sale']: true }));
+  }, [isStuds]);
 
   const toggleSection = (id) => {
     setOpenSections(prev => ({ ...prev, [id]: !prev[id] }));
@@ -304,7 +310,7 @@ export default function LivestockForSale() {
   const { t } = useTranslation();
   const { slug } = useParams();
   const [searchParams] = useSearchParams();
-  const { pathname } = window.location;
+  const { pathname } = useLocation();
   const isStuds = pathname.includes('/studs/');
 
   const [data, setData] = useState(null);
@@ -327,6 +333,8 @@ export default function LivestockForSale() {
     if (window.innerWidth < 768) setSidebarCollapsed(true);
   }, []);
 
+  // Reset filters/data when species OR for-sale/studs mode changes. Same component
+  // instance is reused across those routes, so slug alone is not enough.
   useEffect(() => {
     setBreedId(0);
     setStateIndex(0);
@@ -339,7 +347,8 @@ export default function LivestockForSale() {
     setOrderBy('desc');
     setPage(1);
     setData(null);
-  }, [slug]);
+    setLoading(true);
+  }, [slug, isStuds]);
 
   useEffect(() => {
     fetch(`${API_URL}/api/marketplace/filters/${slug}`)

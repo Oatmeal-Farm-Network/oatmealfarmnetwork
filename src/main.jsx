@@ -772,6 +772,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
           <Route path="/directory" element={<DirectoryList />} />
           <Route path="/directory/:directoryType" element={<DirectoryDetail />} />
           <Route path="/profile" element={<OrgProfile />} />
+          <Route path="/contact" element={<Navigate to="/contact-us" replace />} />
           <Route path="/contact-us" element={<ContactUs />} />
           <Route path="/contact-us/confirm" element={<ContactUsConfirm />} />
           <Route path="/produce/inventory" element={<ProduceInventory />} />
@@ -1122,8 +1123,9 @@ ReactDOM.createRoot(document.getElementById('root')).render(
           <Route path="/marketplaces/livestock/animal/:id" element={<LivestockAnimalDetail />} />
           <Route path="/marketplaces/livestock/ranch/:businessId" element={<OrgProfile />} />
           <Route path="/marketplaces/livestock/ranches/:slug" element={<RanchList />} />
-          <Route path="/marketplaces/livestock/studs/:slug" element={<LivestockForSale />} />
-          <Route path="/marketplaces/livestock/:slug" element={<LivestockForSale />} />
+          {/* Distinct keys force remount when switching for-sale <-> studs (same component). */}
+          <Route path="/marketplaces/livestock/studs/:slug" element={<LivestockForSale key="livestock-studs" />} />
+          <Route path="/marketplaces/livestock/:slug" element={<LivestockForSale key="livestock-for-sale" />} />
           <Route path="/marketplaces/livestock" element={<LivestockMarketplace />} />
           <Route path="/marketplaces" element={<LivestockMarketplace />} />
           {/* Legacy ASP redirect */}
