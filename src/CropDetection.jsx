@@ -6,10 +6,11 @@ import { Protocol, PMTiles } from 'pmtiles';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import AccountLayout from './AccountLayout';
 import { useAccount } from './AccountContext';
+import { API_URL } from './precisionAgUtils';
 
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 const GCP_API = 'https://us-central1-animated-flare-421518.cloudfunctions.net/analyze-field';
-const FIELD_API = 'https://crop-detection-dcecevhvh5ard2ah.eastus-01.azurewebsites.net/api';
+const FIELD_API = API_URL || 'http://127.0.0.1:8000';
 const CURRENT_YEAR = 2024;
 const PMTILES_2024 = 'pmtiles://https://storage.googleapis.com/pmt_tiles/pmtiles/crop_2024.pmtiles';
 
@@ -166,16 +167,37 @@ function SaveFieldModal({ open, onClose, onSave, fieldData, drawnPolygon, busine
   const { t } = useTranslation();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [fieldSizeHa, setFieldSizeHa] = useState('');
+  const [cropType, setCropType] = useState('');
+  const [plantingDate, setPlantingDate] = useState('');
+  const [monitoringDays, setMonitoringDays] = useState(5);
+  const [alertThreshold, setAlertThreshold] = useState(50);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (open) {
-      setName(fieldData?.cropName ? `${fieldData.cropName} Field` : '');
-      setDescription('');
-      setError('');
+    if (!open) return;
+    const acres = drawnPolygon?.length > 2 ? parseFloat(calcPolygonAcres(drawnPolygon)) : NaN;
+    const hectares = Number.isFinite(acres) ? (acres * 0.404686) : NaN;
+    setName(fieldData?.cropName ? `${fieldData.cropName} Field` : '');
+    setDescription('');
+    setFieldSizeHa(Number.isFinite(hectares) ? hectares.toFixed(2) : '');
+    setCropType(fieldData?.cropName || '');
+    setPlantingDate(new Date().toISOString().slice(0, 10));
+    setMonitoringDays(5);
+    setAlertThreshold(50);
+    setError('');
+  }, [open, fieldData, drawnPolygon]);
+
+  const formatDetail = (detail, fallback) => {
+    if (detail == null || detail === '') return fallback;
+    if (typeof detail === 'string') return detail;
+    if (Array.isArray(detail)) {
+      return detail.map(d => (typeof d === 'string' ? d : d?.msg || JSON.stringify(d))).join('; ') || fallback;
     }
-  }, [open, fieldData]);
+    if (typeof detail === 'object') return detail.msg || detail.message || JSON.stringify(detail);
+    return String(detail);
+  };
 
   const handleSave = async () => {
     if (!name.trim()) { setError(t('crop_detection.error_name_required')); return; }
@@ -187,7 +209,9 @@ function SaveFieldModal({ open, onClose, onSave, fieldData, drawnPolygon, busine
     const centroidLat = coords.reduce((s, c) => s + c[1], 0) / coords.length;
     const centroidLon = coords.reduce((s, c) => s + c[0], 0) / coords.length;
     const acres = parseFloat(calcPolygonAcres(coords));
-    const hectares = acres * 0.404686;
+    const hectaresFromBoundary = acres * 0.404686;
+    const hectares = parseFloat(fieldSizeHa);
+    const sizeHa = Number.isFinite(hectares) && hectares > 0 ? hectares : hectaresFromBoundary;
 
     // Close the polygon (GeoJSON requires first === last)
     const ring = [...coords];
@@ -197,24 +221,22 @@ function SaveFieldModal({ open, onClose, onSave, fieldData, drawnPolygon, busine
 
     const payload = {
       name: name.trim(),
-      fieldDescription: description.trim() || null,
+      field_description: description.trim() || null,
       latitude: centroidLat,
       longitude: centroidLon,
-      fieldSizeHectares: hectares,
-      cropType: fieldData?.cropName || 'Unknown',
+      field_size_hectares: sizeHa,
+      crop_type: cropType.trim() || fieldData?.cropName || 'Unknown',
       address: fieldData?.county ? `${fieldData.county} County` : name.trim(),
-      businessId: businessId ? parseInt(businessId) : 1,
-      createdByPeopleId: peopleId ? parseInt(peopleId) : 1,
-      monitoringEnabled: false,
-      monitoringIntervalDays: 5,
-      alertThresholdHealth: 50,
-      plantingDate: '2024-01-01',
+      business_id: businessId ? parseInt(businessId, 10) : 1,
+      monitoring_interval_days: parseInt(monitoringDays, 10) || 5,
+      alert_threshold_health: parseInt(alertThreshold, 10) || 50,
+      planting_date: plantingDate || null,
       area: `${acres} ac`,
-      boundaryGeoJSON: {
+      boundary_geojson: JSON.stringify({
         type: 'Feature',
         geometry: { type: 'Polygon', coordinates: [ring] },
         properties: {},
-      },
+      }),
     };
 
     try {
@@ -225,7 +247,7 @@ function SaveFieldModal({ open, onClose, onSave, fieldData, drawnPolygon, busine
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || res.statusText);
+        throw new Error(formatDetail(err.detail, res.statusText || t('crop_detection.error_save_failed')));
       }
       const data = await res.json();
       onSave(data.id);
@@ -238,6 +260,10 @@ function SaveFieldModal({ open, onClose, onSave, fieldData, drawnPolygon, busine
   };
 
   if (!open) return null;
+
+  const labelStyle = { display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 6 };
+  const inputStyle = { width: '100%', padding: '10px 12px', border: '2px solid #e5e7eb', borderRadius: 8, fontSize: 14, outline: 'none', boxSizing: 'border-box' };
+
   return (
     <div style={{
       position: 'fixed', inset: 0, zIndex: 9999,
@@ -245,7 +271,8 @@ function SaveFieldModal({ open, onClose, onSave, fieldData, drawnPolygon, busine
       background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(4px)',
     }}>
       <div style={{
-        background: 'white', borderRadius: 16, padding: 32, width: 420, maxWidth: '90vw',
+        background: 'white', borderRadius: 16, padding: 32, width: 520, maxWidth: '92vw',
+        maxHeight: '90vh', overflowY: 'auto',
         boxShadow: '0 24px 60px rgba(0,0,0,0.2)',
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
@@ -260,22 +287,87 @@ function SaveFieldModal({ open, onClose, onSave, fieldData, drawnPolygon, busine
         )}
 
         <div style={{ marginBottom: 16 }}>
-          <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 6 }}>{t('crop_detection.save_label_name')}</label>
+          <label style={labelStyle}>{t('crop_detection.save_label_name')}</label>
           <input
             value={name} onChange={e => setName(e.target.value)}
             placeholder="e.g. North Corn Field"
-            style={{ width: '100%', padding: '10px 12px', border: '2px solid #e5e7eb', borderRadius: 8, fontSize: 14, outline: 'none', boxSizing: 'border-box' }}
+            style={inputStyle}
           />
         </div>
 
-        <div style={{ marginBottom: 20 }}>
-          <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 6 }}>{t('crop_detection.save_label_description')} <span style={{ fontSize: 11, color: '#9ca3af', fontWeight: 400 }}>{t('crop_detection.save_optional')}</span></label>
+        <div style={{ marginBottom: 16 }}>
+          <label style={labelStyle}>{t('crop_detection.save_label_description')} <span style={{ fontSize: 11, color: '#9ca3af', fontWeight: 400 }}>{t('crop_detection.save_optional')}</span></label>
           <textarea
             value={description} onChange={e => setDescription(e.target.value)}
             placeholder="Notes about this field…"
-            rows={3}
-            style={{ width: '100%', padding: '10px 12px', border: '2px solid #e5e7eb', borderRadius: 8, fontSize: 14, outline: 'none', resize: 'vertical', boxSizing: 'border-box' }}
+            rows={2}
+            style={{ ...inputStyle, resize: 'vertical' }}
           />
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+          <div>
+            <label style={labelStyle}>Field Size (hectares)</label>
+            <input
+              type="number" step="0.01" min="0"
+              value={fieldSizeHa}
+              onChange={e => setFieldSizeHa(e.target.value)}
+              placeholder="e.g. 12.5"
+              style={inputStyle}
+            />
+          </div>
+          <div>
+            <label style={labelStyle}>Crop Type</label>
+            <input
+              type="text"
+              value={cropType}
+              onChange={e => setCropType(e.target.value)}
+              placeholder="e.g. Oats, Wheat, Corn"
+              style={inputStyle}
+            />
+          </div>
+        </div>
+
+        <div style={{ marginBottom: 16 }}>
+          <label style={labelStyle}>Planting Date</label>
+          <input
+            type="date"
+            value={plantingDate}
+            onChange={e => setPlantingDate(e.target.value)}
+            style={inputStyle}
+          />
+        </div>
+
+        <div style={{ marginBottom: 16 }}>
+          <label style={labelStyle}>
+            Monitoring Interval —{' '}
+            <span style={{ color: '#6D8E22', fontWeight: 700 }}>every {monitoringDays} days</span>
+          </label>
+          <input
+            type="range" min="1" max="30"
+            value={monitoringDays}
+            onChange={e => setMonitoringDays(Number(e.target.value))}
+            style={{ width: '100%', accentColor: '#6D8E22' }}
+          />
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#9ca3af' }}>
+            <span>1 day</span><span>30 days</span>
+          </div>
+        </div>
+
+        <div style={{ marginBottom: 20 }}>
+          <label style={labelStyle}>
+            Alert Threshold —{' '}
+            <span style={{ color: '#6D8E22', fontWeight: 700 }}>health below {alertThreshold}%</span>
+          </label>
+          <input
+            type="range" min="0" max="100"
+            value={alertThreshold}
+            onChange={e => setAlertThreshold(Number(e.target.value))}
+            style={{ width: '100%', accentColor: '#6D8E22' }}
+          />
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#9ca3af' }}>
+            <span>0%</span><span>100%</span>
+          </div>
         </div>
 
         {error && (
@@ -333,7 +425,9 @@ function AnalysisDrawer({ open, fieldData, onClose, onSaveField, drawnPolygon, b
           <div style={{ marginBottom: 20 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
               <h2 style={{ fontSize: 22, fontWeight: 700, color: '#111827', margin: 0 }}>{fieldData.cropName}</h2>
-              <span style={{ padding: '3px 10px', background: '#f3f4f6', borderRadius: 6, fontSize: 11, fontWeight: 600, color: '#6b7280' }}>{fieldData.texture} Soil</span>
+              {fieldData.texture && (
+                <span style={{ padding: '3px 10px', background: '#f3f4f6', borderRadius: 6, fontSize: 11, fontWeight: 600, color: '#6b7280' }}>{fieldData.texture} Soil</span>
+              )}
             </div>
             <div style={{ fontSize: 12, color: '#9ca3af', display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg> {fieldData.location.lat.toFixed(4)}°, {fieldData.location.lon.toFixed(4)}°
@@ -373,6 +467,14 @@ function AnalysisDrawer({ open, fieldData, onClose, onSaveField, drawnPolygon, b
             >
               💾 {t('crop_detection.drawer_save_field', { acres: calcPolygonAcres(drawnPolygon) })}
             </button>
+          )}
+
+          {/* Soil data unavailable notice */}
+          {fieldData.soilUnavailable && (
+            <div style={{ background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 10, padding: '12px 14px', marginBottom: 14, fontSize: 12.5, color: '#6b7280', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              Soil composition data is unavailable for this location — health score and fertilizer recommendations can't be calculated.
+            </div>
           )}
 
           {/* Health */}
@@ -519,6 +621,13 @@ export default function CropDetection() {
   const [drawnPolygon, setDrawnPolygon] = useState([]);      // array of [lng, lat]
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [savedFieldId, setSavedFieldId] = useState(null);
+  const [saveToast, setSaveToast] = useState(null);
+
+  useEffect(() => {
+    if (!saveToast) return;
+    const timer = setTimeout(() => setSaveToast(null), 4000);
+    return () => clearTimeout(timer);
+  }, [saveToast]);
 
   const mapContainer = useRef(null);
   const map = useRef(null);
@@ -679,19 +788,25 @@ export default function CropDetection() {
       const data = await res.json();
       const history = data.history || {};
 
-      let soil = { ph: 6.5, soc: 20, sand: 35, clay: 25, silt: 40, nitrogen: 2.5 };
+      // Only compute soil-derived stats (health score, texture, fertilizer
+      // plan) when the soil-grid lookup actually succeeded. Previously a
+      // hardcoded fallback ({ph:6.5, soc:20, ...}) was fed into these
+      // calculations whenever the lookup failed, silently presenting made-up
+      // numbers (e.g. a "100 — Excellent" health score) as real data.
+      let soil = null;
       let depthSummaries = [];
       let depthKeys = [];
       let topDepthKey = null;
+      const soilAvailable = data.soil?.status === 'ok' && data.soil?.depths;
 
-      if (data.soil?.status === 'ok' && data.soil?.depths) {
+      if (soilAvailable) {
         const depths = data.soil.depths;
         depthKeys = Object.keys(depths);
         topDepthKey = depthKeys.includes('0-5 cm') ? '0-5 cm'
           : depthKeys.includes('0-5cm') ? '0-5cm'
           : depthKeys[0] || null;
         const topLayer = depths[topDepthKey] || Object.values(depths)[0];
-        if (topLayer) soil = normalizeSoilLayer(topLayer) || soil;
+        if (topLayer) soil = normalizeSoilLayer(topLayer);
         depthSummaries = depthKeys
           .map(key => ({ depth: key, soil: normalizeSoilLayer(depths[key]) }))
           .filter(e => e.soil);
@@ -701,9 +816,10 @@ export default function CropDetection() {
         cropName, county: props.CNTY, acres: props.CSBACRES,
         history, soil, depthKeys, topDepthKey, depthSummaries,
         recommendations: data.recommendations || [],
-        texture: getTextureClass(soil.sand, soil.clay),
-        healthData: getHealthScore(soil),
-        fertilizerPlan: getFertilizerPlan(soil),
+        soilUnavailable: !soil,
+        texture: soil ? getTextureClass(soil.sand, soil.clay) : null,
+        healthData: soil ? getHealthScore(soil) : null,
+        fertilizerPlan: soil ? getFertilizerPlan(soil) : null,
         location: { lat, lon },
       });
     } catch (e) {
@@ -1298,14 +1414,37 @@ export default function CropDetection() {
       <SaveFieldModal
         open={showSaveModal}
         onClose={() => setShowSaveModal(false)}
-        onSave={(id) => { setSavedFieldId(id); alert(`✓ ${t('crop_detection.alert_saved', { id })}`); }}
+        onSave={(id) => { setSavedFieldId(id); setSaveToast(t('crop_detection.alert_saved', { id })); }}
         fieldData={fieldData}
         drawnPolygon={drawnPolygon}
         businessId={BusinessID}
         peopleId={PeopleID}
       />
 
-      <style>{`@keyframes cdspin { 100% { transform: rotate(360deg); } }`}</style>
+      {/* Save-success toast — replaces the old native alert() popup */}
+      {saveToast && (
+        <div style={{
+          position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)',
+          zIndex: 10000, display: 'flex', alignItems: 'center', gap: 10,
+          background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 10,
+          padding: '12px 18px', boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+          color: '#166534', fontSize: 13.5, fontWeight: 600,
+          animation: 'cdtoastin 0.2s ease-out',
+        }}>
+          <span>✓</span>
+          <span>{saveToast}</span>
+          <button
+            onClick={() => setSaveToast(null)}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#166534', fontSize: 15, marginLeft: 4, lineHeight: 1 }}
+            aria-label="Dismiss"
+          >✕</button>
+        </div>
+      )}
+
+      <style>{`
+        @keyframes cdspin { 100% { transform: rotate(360deg); } }
+        @keyframes cdtoastin { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }
+      `}</style>
     </AccountLayout>
   );
 }

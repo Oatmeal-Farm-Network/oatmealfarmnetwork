@@ -75,6 +75,14 @@ function SaigeWidgetGlobal() {
   if (/^\/events\/[^/]+\/register(\/wizard)?$/.test(pathname)) return null;
   if (/^\/events\/[^/]+\/(rsvp|conference|compete|dining|tour)$/.test(pathname)) return null;
 
+  // Precision Ag pages that embed SaigeWidget directly with field-specific
+  // context (avoid a second, generic bubble stacking on top of it)
+  if (pathname.startsWith('/precision-ag/analyses'))       return null;
+  if (pathname.startsWith('/precision-ag/geospatial'))     return null;
+  if (pathname.startsWith('/precision-ag/statistics'))     return null;
+  if (pathname.startsWith('/precision-ag/analysis/zoning')) return null;
+  if (pathname.startsWith('/precision-ag/analysis/maps'))   return null;
+
   // Specialty-crop pages that embed SaigeWidget directly (avoid duplicate bubbles)
   if (pathname.startsWith('/chilling-hours'))      return null;
   if (pathname.startsWith('/grain-bin'))            return null;
@@ -209,6 +217,7 @@ function SaigeWidgetGlobal() {
   return <SaigeWidget businessId={businessId} pageContext={pageContext} />;
 }
 import OfflineIndicator from './OfflineIndicator';
+import GlobalBackBar from './GlobalBackBar';
 import './i18n.js';
 import { useTranslation } from 'react-i18next';
 import './index.css'
@@ -436,6 +445,7 @@ const FieldAssessmentReport = lazyWithReload(() => import('./FieldAssessmentRepo
 const PrecisionAgAlerts = lazyWithReload(() => import('./PrecisionAgAlerts.jsx'))
 const PrecisionAgGDD = lazyWithReload(() => import('./PrecisionAgGDD.jsx'))
 const PrecisionAgActivityLog = lazyWithReload(() => import('./PrecisionAgActivityLog.jsx'))
+const PrecisionAgScouting = lazyWithReload(() => import('./PrecisionAgScouting.jsx'))
 const PrecisionAgIrrigation = lazyWithReload(() => import('./PrecisionAgIrrigation.jsx'))
 const PrecisionAgYieldForecast = lazyWithReload(() => import('./PrecisionAgYieldForecast.jsx'))
 const PrecisionAgCarbon = lazyWithReload(() => import('./PrecisionAgCarbon.jsx'))
@@ -671,6 +681,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
           </Routes>
         ) : (
         <AppShell>
+        <GlobalBackBar />
         <OfflineIndicator />
         <Routes>
           <Route path="/" element={<App />} />
@@ -743,6 +754,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
           <Route path="/precision-ag/alerts" element={<RequireAuth><PrecisionAgAlerts /></RequireAuth>} />
           <Route path="/precision-ag/gdd" element={<RequireAuth><PrecisionAgGDD /></RequireAuth>} />
           <Route path="/precision-ag/activity-log" element={<RequireAuth><PrecisionAgActivityLog /></RequireAuth>} />
+          <Route path="/precision-ag/field-scouting" element={<RequireAuth><PrecisionAgScouting /></RequireAuth>} />
           <Route path="/precision-ag/irrigation" element={<RequireAuth><PrecisionAgIrrigation /></RequireAuth>} />
           <Route path="/precision-ag/yield-forecast" element={<RequireAuth><PrecisionAgYieldForecast /></RequireAuth>} />
           <Route path="/precision-ag/carbon" element={<RequireAuth><PrecisionAgCarbon /></RequireAuth>} />
