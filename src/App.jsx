@@ -186,8 +186,7 @@ function FeatureCard({ title, description, img, link }) {
   );
 }
 
-/** Legacy OFN homepage — preserved at /ofn-home-legacy (not deleted). */
-export default function OFNHomePageLegacy() {
+export default function App() {
   const { t } = useTranslation();
 
   return (
