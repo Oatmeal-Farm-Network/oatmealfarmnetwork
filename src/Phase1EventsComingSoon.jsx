@@ -5,6 +5,7 @@ import Header from './Header';
 import Footer from './Footer';
 import PageMeta from './PageMeta';
 import Breadcrumbs from './Breadcrumbs';
+import { isLoggedIn } from './phase1PublicAccess';
 
 const CREAM = '#f7f2e8';
 const OLIVE = '#3d6b34';
@@ -12,6 +13,10 @@ const INK = '#2c2c2c';
 
 export default function Phase1EventsComingSoon() {
   const { t } = useTranslation();
+  const backTo = isLoggedIn() ? '/account' : '/';
+  const backLabel = isLoggedIn()
+    ? t('phase1.events.back_dashboard', 'Back to Dashboard')
+    : t('phase1.events.back_home', 'Back to Home');
 
   return (
     <div className="min-h-screen font-sans flex flex-col" style={{ backgroundColor: CREAM }}>
@@ -23,7 +28,10 @@ export default function Phase1EventsComingSoon() {
       <Header />
       <div className="flex-1">
         <div className="container-fluid mx-auto px-4" style={{ maxWidth: '900px' }}>
-          <Breadcrumbs items={[{ label: t('phase1.nav.home', 'Home'), to: '/' }, { label: t('phase1.nav.events', 'Events') }]} />
+          <Breadcrumbs items={[
+            { label: isLoggedIn() ? t('nav.dashboard', 'Dashboard') : t('phase1.nav.home', 'Home'), to: backTo },
+            { label: t('phase1.nav.events', 'Events') },
+          ]} />
           <div className="py-16 md:py-24 text-center">
             <p className="text-sm uppercase tracking-widest mb-3" style={{ color: OLIVE }}>
               {t('phase1.events.eyebrow', 'Livestock of America')}
@@ -38,11 +46,11 @@ export default function Phase1EventsComingSoon() {
               {t('phase1.events.body', 'We are preparing livestock industry events, shows, and gatherings. Check back soon.')}
             </p>
             <Link
-              to="/"
+              to={backTo}
               className="inline-block px-6 py-3 rounded text-white no-underline"
               style={{ backgroundColor: OLIVE }}
             >
-              {t('phase1.events.back_home', 'Back to Home')}
+              {backLabel}
             </Link>
           </div>
         </div>

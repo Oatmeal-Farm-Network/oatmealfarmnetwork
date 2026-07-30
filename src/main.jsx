@@ -602,7 +602,9 @@ function AccountRoute() {
 }
 
 function AnimalsIndexRoute() {
-  if (isPhase1PublicMode() && !isLoggedIn()) return <LivestockMarketplace />;
+  // Phase 1: always show the public Livestock Marketplace landing (same as homepage),
+  // never the authenticated AnimalsHome herd manager.
+  if (isPhase1PublicMode()) return <LivestockMarketplace />;
   return <AnimalsHome />;
 }
 

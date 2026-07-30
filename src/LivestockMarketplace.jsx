@@ -84,7 +84,7 @@ function GuestBanner() {
         <Link
           to="/signup"
           className="rounded-md px-4 py-2 text-sm font-semibold text-white no-underline"
-          style={{ backgroundColor: OLIVE }}
+          style={{ backgroundColor: OLIVE, color: '#ffffff' }}
         >
           {t('nav.signup', 'Sign Up')}
         </Link>
@@ -94,6 +94,7 @@ function GuestBanner() {
 }
 
 function FiltersPanel({
+  category,
   animalType,
   breed,
   location,
@@ -101,6 +102,7 @@ function FiltersPanel({
   animalTypes,
   breeds,
   locations,
+  onCategory,
   onAnimalType,
   onBreed,
   onLocation,
@@ -127,6 +129,20 @@ function FiltersPanel({
           {t('livestock_mkt.clear_all', 'Clear all')}
         </button>
       </div>
+
+      <label className="block text-[10px] font-bold tracking-wider mb-1" style={{ color: MUTED }}>
+        {t('livestock_mkt.filter_category', 'CATEGORY')}
+      </label>
+      <select
+        value={category}
+        onChange={(e) => onCategory(e.target.value)}
+        className="w-full mb-4 rounded-md border px-3 py-2 text-sm"
+        style={{ borderColor: '#ddd8cc', color: INK }}
+      >
+        <option value="for_sale">{t('livestock_mkt.tab_for_sale', 'Livestock for Sale')}</option>
+        <option value="studs">{t('livestock_mkt.tab_studs', 'Stud Services')}</option>
+        <option value="ranches">{t('livestock_mkt.tab_ranches', 'Ranches')}</option>
+      </select>
 
       <label className="block text-[10px] font-bold tracking-wider mb-1" style={{ color: MUTED }}>
         {t('livestock_mkt.filter_animal_type', 'ANIMAL TYPE')}
@@ -291,7 +307,34 @@ export default function LivestockMarketplace() {
   const [breed, setBreed] = useState('');
   const [location, setLocation] = useState('');
   const [priceMax, setPriceMax] = useState(10000);
+  const [category, setCategory] = useState('for_sale');
   const guest = !isLoggedIn();
+
+  const handleCategoryChange = (next) => {
+    setCategory(next);
+    if (next === 'studs') {
+      navigate('/marketplaces/livestock/studs/cattle');
+      return;
+    }
+    if (next === 'ranches') {
+      navigate('/marketplaces/livestock/ranches/cattle');
+      return;
+    }
+    // for_sale stays on marketplace landing and filters local listings
+  };
+
+  const handleAnimalTypeChange = (type) => {
+    setAnimalType(type);
+    if (!type) return;
+    // Jump to species for-sale listing when a specific animal type is chosen
+    const slug = String(type).toLowerCase().replace(/\s+/g, '-');
+    if (category === 'studs') {
+      navigate(`/marketplaces/livestock/studs/${slug}`);
+    } else if (category === 'ranches') {
+      navigate(`/marketplaces/livestock/ranches/${slug}`);
+    }
+    // for_sale: filter homepage listings by species (already handled by animalType state)
+  };
 
   useEffect(() => {
     fetch(`${API_URL}/api/marketplace/homepage-listings`)
@@ -342,6 +385,7 @@ export default function LivestockMarketplace() {
     setBreed('');
     setLocation('');
     setPriceMax(10000);
+    setCategory('for_sale');
   };
 
   return (
@@ -402,7 +446,7 @@ export default function LivestockMarketplace() {
           <Link
             to="/signup"
             className="inline-block rounded-lg px-6 py-3 text-sm font-semibold text-white no-underline shadow-sm"
-            style={{ backgroundColor: OLIVE }}
+            style={{ backgroundColor: OLIVE, color: '#ffffff' }}
           >
             {t('livestock_mkt.join_now')}
           </Link>
@@ -420,6 +464,7 @@ export default function LivestockMarketplace() {
         ) : (
           <section className="mt-8 grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-6 items-start">
             <FiltersPanel
+              category={category}
               animalType={animalType}
               breed={breed}
               location={location}
@@ -427,7 +472,8 @@ export default function LivestockMarketplace() {
               animalTypes={animalTypes}
               breeds={breeds}
               locations={locations}
-              onAnimalType={setAnimalType}
+              onCategory={handleCategoryChange}
+              onAnimalType={handleAnimalTypeChange}
               onBreed={setBreed}
               onLocation={setLocation}
               onPriceMax={setPriceMax}

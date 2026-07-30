@@ -15,7 +15,7 @@ export const HERO_TABS = [
     titleFallback: 'Livestock for Sale',
     subtitleKey: 'livestock_mkt.tab_for_sale_sub',
     subtitleFallback: 'Animals available from trusted breeders.',
-    to: '/',
+    to: '/marketplaces/livestock/cattle',
     icon: 'sale',
   },
   {

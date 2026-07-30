@@ -72,8 +72,8 @@ export default function ForgotPassword() {
             <div className="bg-[#819360] px-8 py-8 text-center">
               <img
                 src="/images/Oatmeal-Farm-Network-logo-horizontal-white.webp"
-                alt="Oatmeal Farm Network"
-                className="h-10 mx-auto mb-4"
+                alt="Livestock of America"
+                className="h-12 mx-auto mb-4 w-auto"
               />
               <h1 className="text-white text-2xl font-bold font-lora m-0">{t('forgot.title')}</h1>
               <p className="text-white/80 text-sm mt-1">{t('forgot.subtitle')}</p>

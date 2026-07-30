@@ -44,15 +44,13 @@ const About = () => {
               {phase1 ? t('phase1.about.title') : t('about.title')}
             </h1>
 
-            {!phase1 && (
-              <div className="flex justify-center mb-4">
-                <img
-                  src="/images/Oatmeal-Farm-Network-logo-horizontal.svg"
-                  style={{ width: '220px' }}
-                  alt="Oatmeal Farm Network Logo"
-                />
-              </div>
-            )}
+            <div className="flex justify-center mb-4">
+              <img
+                src="/images/Oatmeal-Farm-Network-logo-horizontal-white.webp"
+                style={{ width: '280px', height: 'auto' }}
+                alt="Livestock of America Logo"
+              />
+            </div>
 
             <p className="text-xl italic mb-8">
               {phase1 ? t('phase1.about.tagline') : t('about.tagline')}

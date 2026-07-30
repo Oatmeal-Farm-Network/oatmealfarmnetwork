@@ -4,6 +4,8 @@ import { useTranslation } from 'react-i18next';
 import Header from './Header';
 import Footer from './Footer';
 import PageMeta from './PageMeta';
+import { isPhase1PublicMode } from './phase1PublicAccess';
+import { persistDevMockSession, tryDevMockLogin } from './devMockAuth';
 
 const API = import.meta.env.VITE_API_URL || '';
 
@@ -11,7 +13,9 @@ export default function Login() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
-  const from = location.state?.from ? location.state.from.pathname + (location.state.from.search || '') : '/dashboard';
+  const from = location.state?.from
+    ? location.state.from.pathname + (location.state.from.search || '')
+    : (isPhase1PublicMode() ? '/account' : '/dashboard');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -31,6 +35,13 @@ export default function Login() {
     setLoading(true);
 
     try {
+      const mockSession = tryDevMockLogin(email, password);
+      if (mockSession) {
+        persistDevMockSession(mockSession);
+        navigate(from, { replace: true });
+        return;
+      }
+
       const response = await fetch(`${API}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -77,8 +88,8 @@ export default function Login() {
             <div className="bg-[#819360] px-8 py-8 text-center">
               <img
                 src="/images/Oatmeal-Farm-Network-logo-horizontal-white.webp"
-                alt="Oatmeal Farm Network"
-                className="h-10 mx-auto mb-4"
+                alt="Livestock of America"
+                className="h-12 mx-auto mb-4 w-auto"
               />
               <h1 className="text-white text-2xl font-bold font-lora m-0">{t('auth.login_welcome')}</h1>
               <p className="text-white/80 text-sm mt-1">{t('auth.login_subtitle')}</p>
