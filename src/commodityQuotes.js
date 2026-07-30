@@ -9,6 +9,13 @@ const YF_SYMBOLS = ['ZC=F', 'ZS=F', 'ZW=F', 'LE=F', 'GF=F', 'HE=F', 'DC=F', 'CT=
 /** Grain futures on Yahoo are US cents/bushel — show as $/bu */
 const GRAIN_CENTS = new Set(['ZC=F', 'ZS=F', 'ZW=F']);
 
+/** Futures symbols used in the News Feed market snapshot widget */
+export const SNAPSHOT_YF_SYMBOLS = {
+  ZW: 'ZW=F',
+  ZC: 'ZC=F',
+  ZS: 'ZS=F',
+};
+
 export function readQuotesCache() {
   try {
     const raw = localStorage.getItem(CACHE_KEY);
@@ -161,4 +168,36 @@ export async function fetchCommodityQuotes({ timeoutMs = 8000, preferCache = tru
 /** Background refresh — updates cache without blocking UI */
 export function refreshCommodityQuotesInBackground() {
   fetchCommodityQuotes({ preferCache: false, timeoutMs: 15000 }).catch(() => {});
+}
+
+/**
+ * Fetch recent daily closes for snapshot sparklines (Wheat, Corn, Soy).
+ * Returns { ZW: number[], ZC: number[], ZS: number[] } — prices in $/bu.
+ */
+export async function fetchSnapshotSparklines({ signal, range = '5d' } = {}) {
+  const out = {};
+  await Promise.all(
+    Object.entries(SNAPSHOT_YF_SYMBOLS).map(async ([key, sym]) => {
+      try {
+        const url = `/yf/v8/finance/chart/${encodeURIComponent(sym)}?interval=1d&range=${range}`;
+        const r = await fetch(url, {
+          signal,
+          headers: { Accept: 'application/json' },
+        });
+        if (!r.ok) return;
+        const data = await r.json();
+        const result = data?.chart?.result?.[0];
+        const closes = (result?.indicators?.quote?.[0]?.close || []).filter(
+          (p) => p != null && Number.isFinite(Number(p))
+        );
+        if (closes.length < 2) return;
+        out[key] = GRAIN_CENTS.has(sym)
+          ? closes.map((p) => Number(p) / 100)
+          : closes.map((p) => Number(p));
+      } catch {
+        /* skip symbol */
+      }
+    })
+  );
+  return out;
 }

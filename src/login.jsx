@@ -5,7 +5,7 @@ import Header from './Header';
 import Footer from './Footer';
 import PageMeta from './PageMeta';
 
-const API = import.meta.env.VITE_API_URL;
+const API = import.meta.env.VITE_API_URL || '';
 
 export default function Login() {
   const { t } = useTranslation();

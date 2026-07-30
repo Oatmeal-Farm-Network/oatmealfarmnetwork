@@ -5,6 +5,7 @@ import Header from './Header';
 import Footer from './Footer';
 import PageMeta from './PageMeta';
 import Breadcrumbs from './Breadcrumbs';
+import LivestockHeroTabs from './LivestockHeroTabs';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
 
@@ -321,6 +322,8 @@ export default function RanchList() {
         }}
       />
       <Header />
+      <LivestockHeroTabs />
+
       <div style={{ maxWidth: '1300px', margin: '0 auto', padding: '0.5rem 1rem 0' }}>
         <Breadcrumbs items={[
           { label: 'Home', to: '/' },

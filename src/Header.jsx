@@ -5,6 +5,7 @@ import { useAccount } from './AccountContext';
 import NotificationBell from './NotificationBell';
 import CartBell from './CartBell';
 import LanguageSelector from './LanguageSelector';
+import { isPhase1PublicMode, PHASE1_GUEST_NAV } from './phase1PublicAccess';
 
 const OTF_API = import.meta.env.VITE_OTF_API_URL || '';
 
@@ -267,6 +268,21 @@ const Header = () => {
   // Logged-out: simple marketing nav on every page. Logged-in: full app nav.
   const isGuest = !isLoggedIn;
   const headerBg = '#8b3a2b';
+  const phase1GuestNav = isGuest && isPhase1PublicMode();
+  const guestNavItems = phase1GuestNav
+    ? PHASE1_GUEST_NAV.map((item) => ({
+        to: item.to,
+        label: t(item.labelKey, item.fallback),
+      }))
+    : [
+        { to: '/', label: t('nav.home') },
+        { to: '/directory', label: t('nav.directory') },
+        { to: '/knowledgebases', label: t('nav.knowledgebases') },
+        { to: '/marketplaces', label: t('nav.marketplaces') },
+        { to: '/platform/saige', label: t('nav.saige', 'Saige') },
+        { to: '/contact-us', label: t('nav.contact') },
+        { to: '/login', label: t('nav.login') },
+      ];
 
   return (
     <nav
@@ -278,7 +294,7 @@ const Header = () => {
       >
 
         {/* Logo */}
-        <Link to={isLoggedIn ? "/dashboard" : "/"} className="flex items-center shrink-0">
+        <Link to={isLoggedIn ? (isPhase1PublicMode() ? '/account' : '/dashboard') : '/'} className="flex items-center shrink-0">
           <img
             src="/images/Oatmeal-Farm-Network-logo-horizontal-white.webp"
             className="h-11 md:h-[52px]"
@@ -293,23 +309,20 @@ const Header = () => {
         {isGuest ? (
           <>
             <div
-              className="hidden md:flex items-center ml-auto shrink-0"
-              style={{ gap: '1.75rem' }}
+              className={`hidden md:flex items-center ml-auto shrink-0 ${phase1GuestNav ? 'flex-wrap justify-end max-w-[62%] xl:max-w-none' : ''}`}
+              style={{ gap: phase1GuestNav ? '0.85rem' : '1.75rem' }}
             >
-              {[
-                { to: '/', label: t('nav.home') },
-                { to: '/directory', label: t('nav.directory') },
-                { to: '/knowledgebases', label: t('nav.knowledgebases') },
-                { to: '/marketplaces', label: t('nav.marketplaces') },
-                { to: '/platform/saige', label: t('nav.saige', 'Saige') },
-                { to: '/contact-us', label: t('nav.contact') },
-                { to: '/login', label: t('nav.login') },
-              ].map((item) => (
+              {guestNavItems.map((item) => (
                 <Link
                   key={item.to}
                   to={item.to}
                   className={guestLinkClass}
-                  style={{ ...guestLinkStyle, whiteSpace: 'nowrap', display: 'inline-block' }}
+                  style={{
+                    ...guestLinkStyle,
+                    whiteSpace: 'nowrap',
+                    display: 'inline-block',
+                    fontSize: phase1GuestNav ? '12px' : undefined,
+                  }}
                 >
                   {item.label}
                 </Link>
@@ -326,15 +339,7 @@ const Header = () => {
                 style={{ backgroundColor: '#8b3a2b' }}
               >
                 <div className="flex flex-col p-6 gap-4 text-base font-normal text-center">
-                  {[
-                    { to: '/', label: t('nav.home') },
-                    { to: '/directory', label: t('nav.directory') },
-                    { to: '/knowledgebases', label: t('nav.knowledgebases') },
-                    { to: '/marketplaces', label: t('nav.marketplaces') },
-                    { to: '/platform/saige', label: t('nav.saige', 'Saige') },
-                    { to: '/contact-us', label: t('nav.contact') },
-                    { to: '/login', label: t('nav.login') },
-                  ].map((item) => (
+                  {guestNavItems.map((item) => (
                     <Link
                       key={item.to}
                       to={item.to}
@@ -357,7 +362,7 @@ const Header = () => {
           style={{ gap: '1.25rem' }}
         >
           {nav('dashboard') && (
-            <Link to="/dashboard" className="nav-link text-xs whitespace-nowrap" style={appLinkStyle}>
+            <Link to={isPhase1PublicMode() ? '/account' : '/dashboard'} className="nav-link text-xs whitespace-nowrap" style={appLinkStyle}>
               {t('nav.dashboard')}
             </Link>
           )}
@@ -474,7 +479,7 @@ const Header = () => {
           <div className="flex flex-col p-6 gap-4 text-base font-normal text-center">
 
             {nav('dashboard') && (
-              <Link to="/dashboard" onClick={() => setIsOpen(false)} className="nav-link block" style={appLinkStyle}>
+              <Link to={isPhase1PublicMode() ? '/account' : '/dashboard'} onClick={() => setIsOpen(false)} className="nav-link block" style={appLinkStyle}>
                 {t('nav.dashboard')}
               </Link>
             )}
