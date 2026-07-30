@@ -1,12 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAccount } from './AccountContext';
-import {
-  isPhase1LoggedInNavMode,
-  PHASE1_LOGGED_IN_NAV,
-  PHASE1_KB_DROPDOWN,
-} from './phase1PublicAccess';
 
 const OTF_API = import.meta.env.VITE_OTF_API_URL || import.meta.env.VITE_API_URL || '';
 
@@ -206,26 +201,11 @@ function NavGroup({ icon, label, expanded, isOpen, onToggle, children }) {
 
 export default function AccountSidebar() {
   const { t } = useTranslation();
-  const navigate = useNavigate();
-  const { Business, BusinessID, Expanded, setExpanded, OpenSections, setOpenSections, businesses, websiteSlug, setWebsiteSlug, clearBusiness } = useAccount();
+  const { Business, BusinessID, Expanded, setExpanded, OpenSections, setOpenSections, businesses, websiteSlug, setWebsiteSlug } = useAccount();
   const peopleId = typeof window !== 'undefined' ? localStorage.getItem('people_id') || '' : '';
   const [fields, setFields] = useState([]);
   const [features, setFeatures] = useState(null);
   const location = useLocation();
-  const phase1Nav = isPhase1LoggedInNavMode();
-
-  const handleLogout = () => {
-    [
-      'access_token', 'people_id', 'first_name', 'last_name', 'access_level',
-      'AccessToken', 'PeopleID', 'PeopleFirstName', 'PeopleLastName', 'AccessLevel',
-      'selected_business_id',
-    ].forEach((k) => localStorage.removeItem(k));
-    Object.keys(localStorage)
-      .filter((k) => k.startsWith('saige_'))
-      .forEach((k) => localStorage.removeItem(k));
-    clearBusiness();
-    navigate('/login');
-  };
 
   useEffect(() => {
     if (!BusinessID) return;
@@ -277,105 +257,6 @@ export default function AccountSidebar() {
   };
 
   const isAccountOpen = OpenSections.Account || false;
-
-  if (phase1Nav) {
-    const kbOpen = OpenSections['Livestock Knowledgebase'] || false;
-
-    return (
-      <div
-        className="fixed top-18 left-0 bottom-0 z-60 flex flex-col transition-all duration-300"
-        style={{ backgroundColor: '#faf6ef', width: Expanded ? '211px' : '67px' }}
-      >
-        <button
-          onClick={() => setExpanded(!Expanded)}
-          className="flex items-center justify-end px-3 py-2 text-gray-400 hover:text-gray-600 hover:bg-white/20 transition-all border-b border-gray-300/30 shrink-0"
-          title={Expanded ? t('account_sidebar.toggle_collapse') : t('account_sidebar.toggle_expand')}
-        >
-          {Expanded ? <CollapseIcon /> : <ExpandIcon />}
-        </button>
-
-        <nav className="flex flex-col gap-1 p-2 grow overflow-y-auto">
-          {PHASE1_LOGGED_IN_NAV.map((item) => {
-            const label = t(item.labelKey, item.fallback);
-            if (item.dropdown) {
-              return (
-                <div key={item.to} className="mb-0.5">
-                  <button
-                    type="button"
-                    onClick={() => toggleSection('Livestock Knowledgebase')}
-                    title={!Expanded ? label : undefined}
-                    className={`w-full flex items-center py-2 rounded-lg hover:bg-white/50 text-gray-700 text-sm transition-all ${
-                      Expanded ? 'gap-3 px-3' : 'justify-center'
-                    }`}
-                  >
-                    {Expanded ? (
-                      <>
-                        <span className="grow text-left whitespace-nowrap text-xs">{label}</span>
-                        <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-gray-400 shrink-0">
-                          {kbOpen ? <path d="M3 10l5-5 5 5" /> : <path d="M3 6l5 5 5-5" />}
-                        </svg>
-                      </>
-                    ) : (
-                      <span className="text-[10px] font-bold text-gray-500">{label.charAt(0)}</span>
-                    )}
-                  </button>
-                  {kbOpen && Expanded && (
-                    <div className="flex flex-col gap-0.5 mt-0.5">
-                      {PHASE1_KB_DROPDOWN.map((d) => (
-                        <Link
-                          key={d.to}
-                          to={d.to}
-                          className={`flex items-center px-3 py-1.5 ml-2 rounded-lg hover:bg-white/50 text-gray-600 text-xs transition-all ${
-                            location.pathname === d.to || location.pathname.startsWith(`${d.to}/`)
-                              ? 'bg-white/70 font-semibold text-gray-800'
-                              : ''
-                          }`}
-                        >
-                          {t(d.labelKey, d.fallback)}
-                        </Link>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              );
-            }
-            return (
-              <Link
-                key={item.to}
-                to={item.to}
-                title={!Expanded ? label : undefined}
-                className={`flex items-center py-2 rounded-lg hover:bg-white/50 text-gray-700 text-sm transition-all ${
-                  location.pathname === item.to || location.pathname.startsWith(`${item.to}/`)
-                    ? 'bg-white/70 font-semibold'
-                    : ''
-                } ${Expanded ? 'gap-3 px-3' : 'justify-center'}`}
-              >
-                {Expanded ? (
-                  <span className="grow text-left whitespace-nowrap text-xs">{label}</span>
-                ) : (
-                  <span className="text-[10px] font-bold text-gray-500">{label.charAt(0)}</span>
-                )}
-              </Link>
-            );
-          })}
-        </nav>
-
-        <div className="p-2 border-t border-gray-300/50 shrink-0">
-          <button
-            type="button"
-            onClick={handleLogout}
-            title={t('nav.log_out', 'Logout')}
-            className={`w-full flex items-center py-2 rounded-lg hover:bg-white/50 text-gray-700 text-sm transition-all ${
-              Expanded ? 'gap-3 px-3' : 'justify-center'
-            }`}
-          >
-            {Expanded && <span className="text-xs font-semibold">{t('nav.log_out', 'Logout')}</span>}
-            {!Expanded && <span className="text-[10px] font-bold">↪</span>}
-          </button>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div

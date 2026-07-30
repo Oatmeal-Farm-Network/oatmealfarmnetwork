@@ -6,7 +6,6 @@ import Footer from './Footer';
 import PageMeta from './PageMeta';
 import Breadcrumbs from './Breadcrumbs';
 import { useAccount } from './AccountContext';
-import { isPhase1PublicMode } from './phase1PublicAccess';
 
 const CREAM = '#f7f2e8';
 const OLIVE = '#3d6b34';
@@ -272,9 +271,7 @@ export default function Dashboard() {
           <div className="space-y-4">
             {businesses.map((b) => {
               const features = featuresByBusiness[b.BusinessID];
-              const serviceLinks = isPhase1PublicMode()
-                ? []
-                : buildServiceLinks(b.BusinessID, features, t);
+              const serviceLinks = buildServiceLinks(b.BusinessID, features, t);
 
               return (
                 <article
@@ -366,8 +363,7 @@ export default function Dashboard() {
                     </div>
                   </div>
 
-                  {/* Feature shortcuts — hidden in Phase 1 logged-in nav mode */}
-                  {!isPhase1PublicMode() && (
+                  {/* Feature shortcuts */}
                   <div
                     className="px-5 md:px-6 py-3.5 border-t border-black/5"
                     style={{ background: '#faf8f4' }}
@@ -395,7 +391,6 @@ export default function Dashboard() {
                       </div>
                     )}
                   </div>
-                  )}
                 </article>
               );
             })}

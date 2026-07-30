@@ -1,11 +1,10 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { useParams, Link, useSearchParams, useNavigate } from 'react-router-dom';
+import { useParams, Link, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Header from './Header';
 import Footer from './Footer';
 import PageMeta from './PageMeta';
 import Breadcrumbs from './Breadcrumbs';
-import LivestockHeroTabs from './LivestockHeroTabs';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
 
@@ -111,7 +110,6 @@ const SOCIAL_ICONS = [
 ];
 
 function Sidebar({ collapsed, onToggle }) {
-  // Kept for reference / future restore — Browse sidebar is hidden; options live in Filters.
   const { t } = useTranslation();
   const SECTION_LABELS = {
     for_sale: t('ranch_list.sidebar_for_sale'),
@@ -169,56 +167,6 @@ function Sidebar({ collapsed, onToggle }) {
         </div>
       )}
     </div>
-  );
-}
-
-/** When false, Browse sidebar is not shown; its category lists are in Filters instead. */
-const SHOW_BROWSE_SIDEBAR = false;
-
-const ranchFilterBox = { marginBottom: '12px' };
-const ranchFilterLabel = {
-  display: 'block', fontSize: '0.8rem', fontWeight: 600,
-  color: '#555', marginBottom: '4px', textTransform: 'uppercase',
-};
-const ranchSelectStyle = {
-  width: '100%', padding: '6px 8px', border: '1px solid #ccc',
-  borderRadius: '4px', fontSize: '0.85rem',
-};
-
-function RanchCategoryFilters({ slug, onCategoryChange, onSpeciesChange }) {
-  const { t } = useTranslation();
-  const section = SIDEBAR_SECTIONS.find((s) => s.id === 'ranches') || SIDEBAR_SECTIONS[2];
-  const currentPath = section.items.find((item) => item.path.endsWith(`/${slug}`))?.path
-    || section.items[0]?.path
-    || '';
-
-  return (
-    <>
-      <div style={ranchFilterBox}>
-        <label style={ranchFilterLabel}>{t('livestock_mkt.filter_category', 'CATEGORY')}</label>
-        <select
-          value="ranches"
-          onChange={(e) => onCategoryChange(e.target.value)}
-          style={ranchSelectStyle}
-        >
-          <option value="for_sale">{t('livestock_mkt.section_for_sale', 'Livestock for Sale')}</option>
-          <option value="studs">{t('livestock_mkt.section_studs', 'Stud Services')}</option>
-          <option value="ranches">{t('livestock_mkt.section_ranches', 'Ranches')}</option>
-        </select>
-      </div>
-      <div style={ranchFilterBox}>
-        <label style={ranchFilterLabel}>{t('livestock_mkt.filter_animal_type', 'ANIMAL TYPE')}</label>
-        <select
-          value={currentPath}
-          onChange={(e) => onSpeciesChange(e.target.value)}
-          style={ranchSelectStyle}
-        >
-          {section.items.map((item) => (
-            <option key={item.path} value={item.path}>{item.label}</option>
-          ))}
-        </select>
-      </div>
-    </>
   );
 }
 
@@ -316,7 +264,6 @@ const btnStyle = { padding: '5px 12px', border: '1px solid #ccc', borderRadius: 
 export default function RanchList() {
   const { t } = useTranslation();
   const { slug } = useParams();
-  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -358,19 +305,6 @@ export default function RanchList() {
   const fallbackLabel = rawLabel.charAt(0).toUpperCase() + rawLabel.slice(1);
   const label = singularTerm || fallbackLabel;
 
-  const handleCategoryChange = (nextCategory) => {
-    if (nextCategory === 'ranches') return;
-    if (nextCategory === 'studs') {
-      navigate(`/marketplaces/livestock/studs/${slug}`);
-      return;
-    }
-    navigate(`/marketplaces/livestock/${slug}`);
-  };
-
-  const handleSpeciesChange = (path) => {
-    if (path) navigate(path);
-  };
-
   return (
     <div className="min-h-screen font-sans">
       <PageMeta
@@ -387,8 +321,6 @@ export default function RanchList() {
         }}
       />
       <Header />
-      <LivestockHeroTabs />
-
       <div style={{ maxWidth: '1300px', margin: '0 auto', padding: '0.5rem 1rem 0' }}>
         <Breadcrumbs items={[
           { label: 'Home', to: '/' },
@@ -399,9 +331,7 @@ export default function RanchList() {
         ]} />
       </div>
       <div style={{ display: 'flex', alignItems: 'flex-start' }}>
-        {SHOW_BROWSE_SIDEBAR && (
-          <Sidebar collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(p => !p)} />
-        )}
+        <Sidebar collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(p => !p)} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ backgroundColor: '#441c15', padding: '12px 24px' }}>
             <h1 style={{ color: '#fff', margin: 0, fontSize: '1.4rem', fontWeight: 'bold' }}>
@@ -409,43 +339,15 @@ export default function RanchList() {
             </h1>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'flex-start', padding: '16px', gap: '24px' }}>
-            <div style={{ width: '220px', flexShrink: 0 }}>
-              <div style={{
-                backgroundColor: '#fff',
-                border: '1px solid #e5e0d6',
-                borderRadius: '8px',
-                padding: '14px',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
-              }}>
-                <div style={{
-                  fontSize: '0.7rem',
-                  fontWeight: 700,
-                  letterSpacing: '0.08em',
-                  color: '#2c2c2c',
-                  marginBottom: '12px',
-                }}>
-                  {t('livestock_mkt.filters', 'FILTERS')}
-                </div>
-                <RanchCategoryFilters
-                  slug={slug}
-                  onCategoryChange={handleCategoryChange}
-                  onSpeciesChange={handleSpeciesChange}
-                />
-                <div style={ranchFilterBox}>
-                  <label style={ranchFilterLabel}>{t('ranch_list.search_placeholder', 'Search ranches')}</label>
-                  <input
-                    type="text"
-                    value={nameFilter}
-                    onChange={e => { setNameFilter(e.target.value); setPage(1); }}
-                    placeholder={t('ranch_list.search_placeholder')}
-                    style={{ ...ranchSelectStyle, boxSizing: 'border-box' }}
-                  />
-                </div>
-              </div>
-            </div>
+          <div style={{ padding: '16px 16px 0' }}>
+            <input type="text" value={nameFilter}
+              onChange={e => { setNameFilter(e.target.value); setPage(1); }}
+              placeholder={t('ranch_list.search_placeholder')}
+              style={{ padding: '8px 12px', border: '1px solid #ccc', borderRadius: '4px', fontSize: '0.9rem', width: '300px', maxWidth: '100%' }} />
+          </div>
 
-            <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ padding: '16px' }}>
+            <div style={{ minWidth: 0 }}>
               {loading ? (
                 [...Array(3)].map((_, i) => (
                   <div key={i} className="animate-pulse" style={{ marginBottom: '16px', borderRadius: '4px', overflow: 'hidden' }}>

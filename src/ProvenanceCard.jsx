@@ -100,8 +100,8 @@ export default function ProvenanceCard() {
             >
               <img
                 src="/images/Oatmeal-Farm-Network-logo-horizontal-white.webp"
-                alt="Livestock of America"
-                style={{ height: 44, objectFit: 'contain' }}
+                alt="Oatmeal Farm Network"
+                style={{ height: 36, objectFit: 'contain' }}
               />
               <p
                 className="text-white uppercase tracking-[0.2em] text-xs font-bold opacity-90"

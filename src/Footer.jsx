@@ -1,10 +1,5 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import {
-  isPhase1PublicMode,
-  isLoggedIn as checkLoggedIn,
-  PHASE1_GUEST_FOOTER_SITE,
-} from './phase1PublicAccess';
 
 const SITE_LINKS = [
   { label: 'Home', to: '/' },
@@ -95,15 +90,12 @@ function splitColumns(items) {
 }
 
 export default function Footer() {
-  const loggedIn = checkLoggedIn();
-  const phase1Guest = isPhase1PublicMode() && !loggedIn;
+  const isLoggedIn = !!localStorage.getItem('access_token');
   const year = new Date().getFullYear();
-  const siteLinks = phase1Guest ? PHASE1_GUEST_FOOTER_SITE : SITE_LINKS;
-  const livestockLinks = LIVESTOCK_LINKS;
   const [dirLeft, dirRight] = splitColumns(DIRECTORY_LINKS);
-  const [liveLeft, liveRight] = splitColumns(livestockLinks);
+  const [liveLeft, liveRight] = splitColumns(LIVESTOCK_LINKS);
 
-  if (loggedIn) {
+  if (isLoggedIn) {
     return (
       <footer className="bg-[#1a1a1a] text-white py-4 mt-12">
         <div className="text-center">
@@ -124,7 +116,7 @@ export default function Footer() {
           <div className="lg:col-span-2">
             <h3 style={headingStyle}>Site Links</h3>
             <ul className="space-y-0.5">
-              {siteLinks.map((item) => (
+              {SITE_LINKS.map((item) => (
                 <li key={item.to + item.label}>
                   <Link to={item.to} className={linkClass}>{item.label}</Link>
                 </li>
@@ -155,7 +147,7 @@ export default function Footer() {
 
           {/* Livestock DB — two columns */}
           <div className="lg:col-span-5">
-            <h3 style={headingStyle}>{phase1Guest ? 'Livestock Breeds' : 'Livestock DB'}</h3>
+            <h3 style={headingStyle}>Livestock DB</h3>
             <div className="grid grid-cols-2 gap-x-4">
               <ul className="space-y-0.5">
                 {liveLeft.map((item) => (
@@ -182,9 +174,7 @@ export default function Footer() {
 
         <div className="border-t border-white/20 pt-5 text-center">
           <p className="text-white/55 text-xs tracking-wide">
-            {phase1Guest
-              ? `Copyright © ${year} Livestock of America. All Rights Reserved.`
-              : `Copyright © 2023 - ${year} Oatmeal AI. All Rights Reserved.`}
+            Copyright © 2023 - {year} Oatmeal AI. All Rights Reserved.
           </p>
         </div>
       </div>

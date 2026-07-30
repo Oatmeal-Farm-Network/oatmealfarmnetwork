@@ -6,7 +6,6 @@ import PageMeta from './PageMeta';
 import './NewsFeed.css';
 import {
   fetchCommodityQuotes,
-  fetchSnapshotSparklines,
   readQuotesCache,
   hasQuoteData,
   refreshCommodityQuotesInBackground,
@@ -45,6 +44,12 @@ function lookupQuote(quotes, symbol) {
   return quotes[`${symbol}=F`] || quotes[symbol] || quotes[`${symbol}=F.CME`] || null;
 }
 
+function sparkFromChange(price, change) {
+  if (!Number.isFinite(price)) return null;
+  const prev = Number.isFinite(change) ? price - change : price * 0.99;
+  return sparkPointsFromPrices([prev, price]);
+}
+
 function sparkPointsFromPrices(prices, width = 58, height = 16) {
   if (!prices || prices.length < 2) return null;
   const min = Math.min(...prices);
@@ -60,43 +65,7 @@ function sparkPointsFromPrices(prices, width = 58, height = 16) {
     .join(' ');
 }
 
-/** Wavy sparkline when only price + change are available (not a straight 2-point line). */
-function sparkWaveSynthetic(price, change, pct, seed = 0) {
-  if (!Number.isFinite(price)) return null;
-  let start = Number.isFinite(change) ? price - change : null;
-  if (start == null && Number.isFinite(pct)) start = price / (1 + pct / 100);
-  if (start == null || !Number.isFinite(start)) start = price * 0.992;
-
-  const end = price;
-  const n = 12;
-  const trend = end - start;
-  const amp = Math.max(Math.abs(trend) * 0.5, end * 0.007);
-  const phase = seed * 0.65;
-  const prices = [];
-
-  for (let i = 0; i < n; i++) {
-    const t = i / (n - 1);
-    const linear = start + trend * t;
-    const wave =
-      Math.sin(t * Math.PI * 2.4 + phase) * amp +
-      Math.sin(t * Math.PI * 5.2 + phase * 1.4) * amp * 0.38;
-    prices.push(linear + wave * (1 - t * 0.15));
-  }
-  prices[0] = start;
-  prices[n - 1] = end;
-  return sparkPointsFromPrices(prices);
-}
-
-function sparkForCommodity(price, change, pct, symbol, sparkHistory) {
-  const hist = sparkHistory?.[symbol];
-  if (hist && hist.length >= 3) {
-    return sparkPointsFromPrices(hist);
-  }
-  const seed = symbol.split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
-  return sparkWaveSynthetic(price, change, pct, seed);
-}
-
-function buildMarketRows(quotes, sparkHistory = {}) {
+function buildMarketRows(quotes) {
   return SNAPSHOT_COMMODITIES.map((c) => {
     const q = lookupQuote(quotes, c.symbol);
     if (!q || !Number.isFinite(Number(q.price))) {
@@ -127,7 +96,7 @@ function buildMarketRows(quotes, sparkHistory = {}) {
             : '—',
       up,
       down,
-      spark: sparkForCommodity(price, change, pct, c.symbol, sparkHistory),
+      spark: sparkFromChange(price, change),
       empty: false,
     };
   });
@@ -151,7 +120,7 @@ const NewsFeed = () => {
   const [email, setEmail] = useState('');
   const [marketRows, setMarketRows] = useState(() => {
     const cached = readQuotesCache();
-    return cached && hasQuoteData(cached.quotes) ? buildMarketRows(cached.quotes, {}) : [];
+    return cached && hasQuoteData(cached.quotes) ? buildMarketRows(cached.quotes) : [];
   });
   const [marketLoading, setMarketLoading] = useState(() => {
     const cached = readQuotesCache();
@@ -193,7 +162,7 @@ const NewsFeed = () => {
       .catch(() => {});
   }, [t]);
 
-  // Market Snapshot — paint from cache, then refresh quotes + wave sparklines
+  // Market Snapshot — paint from cache, then refresh quotes (no history wait)
   useEffect(() => {
     let cancelled = false;
 
@@ -201,22 +170,18 @@ const NewsFeed = () => {
       const hadCache = marketRows.length > 0 && marketRows.some((r) => !r.empty);
       if (!hadCache) setMarketLoading(true);
 
-      const sparkCtrl = new AbortController();
-      const sparkPromise = fetchSnapshotSparklines({ signal: sparkCtrl.signal }).catch(() => ({}));
-
       const result = await fetchCommodityQuotes({
         preferCache: !hadCache,
         timeoutMs: 6000,
       });
-      const sparkHistory = await sparkPromise;
       if (cancelled) return;
 
       if (hasQuoteData(result.quotes)) {
-        setMarketRows(buildMarketRows(result.quotes, sparkHistory));
+        setMarketRows(buildMarketRows(result.quotes));
         setMarketLoading(false);
         if (result.fromCache) refreshCommodityQuotesInBackground();
       } else if (!hadCache) {
-        setMarketRows(buildMarketRows({}, sparkHistory));
+        setMarketRows(buildMarketRows({}));
         setMarketLoading(false);
       } else {
         setMarketLoading(false);

@@ -1,39 +1,30 @@
-import { defineConfig, loadEnv } from 'vite'
+import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import path from 'path'
 
-export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, process.cwd(), '')
-  const apiTarget = env.VITE_API_URL || 'http://127.0.0.1:8000'
-  const saigeTarget = env.VITE_SAIGE_API_URL || apiTarget
-  const cropTarget = env.VITE_CROP_API_URL || apiTarget
-  const isLocal = (url) => /^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?/.test(url)
-
-  return {
+export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
       '/auth': {
-        target: apiTarget,
+        target: 'http://127.0.0.1:8000',
         changeOrigin: true,
-        secure: !isLocal(apiTarget),
+        secure: false,
       },
       '/api': {
-        target: apiTarget,
+        target: 'http://127.0.0.1:8000',
         changeOrigin: true,
-        secure: !isLocal(apiTarget),
+        secure: false,
       },
       '/saige': {
-        target: saigeTarget,
+        target: 'http://127.0.0.1:8000',
         changeOrigin: true,
-        secure: !isLocal(saigeTarget),
-        // Local monolith serves Saige under /saige; Cloud Run Saige is at root.
-        ...(isLocal(saigeTarget) ? {} : { rewrite: (p) => p.replace(/^\/saige/, '') }),
+        secure: false,
       },
       '/cm': {
-        target: cropTarget,
+        target: 'http://127.0.0.1:8000',
         changeOrigin: true,
-        secure: !isLocal(cropTarget),
-        ...(isLocal(cropTarget) ? {} : { rewrite: (p) => p.replace(/^\/cm/, '') }),
+        secure: false,
       },
       // Yahoo Finance chart API (CORS-safe same-origin proxy for commodity quotes fallback)
       '/yf': {
@@ -57,5 +48,4 @@ export default defineConfig(({ mode }) => {
       ],
     },
   },
-  }
-})
+});
