@@ -1,10 +1,11 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { useParams, Link, useSearchParams } from 'react-router-dom';
+import { useParams, Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Header from './Header';
 import Footer from './Footer';
 import PageMeta from './PageMeta';
 import Breadcrumbs from './Breadcrumbs';
+import LivestockHeroTabs from './LivestockHeroTabs';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
 
@@ -119,6 +120,7 @@ const SIDEBAR_SECTIONS = [
 ];
 
 function Sidebar({ collapsed, onToggle, isStuds }) {
+  // Kept for reference / future restore — Browse sidebar is hidden; options live in Filters.
   const { t } = useTranslation();
   const defaultOpen = isStuds ? 'studs' : 'for_sale';
   const [openSections, setOpenSections] = useState({ [defaultOpen]: true });
@@ -198,6 +200,48 @@ function Sidebar({ collapsed, onToggle, isStuds }) {
         </div>
       )}
     </div>
+  );
+}
+
+/** When false, Browse sidebar is not shown; its category lists are in Filters instead. */
+const SHOW_BROWSE_SIDEBAR = false;
+
+function CategoryFilters({ categoryId, slug, onCategoryChange, onSpeciesChange }) {
+  const { t } = useTranslation();
+  const section = SIDEBAR_SECTIONS.find((s) => s.id === categoryId) || SIDEBAR_SECTIONS[0];
+  const currentPath = section.items.find((item) => item.path.endsWith(`/${slug}`))?.path
+    || section.items[0]?.path
+    || '';
+
+  return (
+    <>
+      <div style={filterBox}>
+        <label style={filterLabel}>{t('livestock_mkt.filter_category', 'CATEGORY')}</label>
+        <select
+          value={categoryId}
+          onChange={(e) => onCategoryChange(e.target.value)}
+          style={selectStyle}
+        >
+          <option value="for_sale">{t('livestock_mkt.section_for_sale', 'Livestock for Sale')}</option>
+          <option value="studs">{t('livestock_mkt.section_studs', 'Stud Services')}</option>
+          <option value="ranches">{t('livestock_mkt.section_ranches', 'Ranches')}</option>
+        </select>
+      </div>
+      <div style={filterBox}>
+        <label style={filterLabel}>{t('livestock_mkt.filter_animal_type', 'ANIMAL TYPE')}</label>
+        <select
+          value={currentPath}
+          onChange={(e) => onSpeciesChange(e.target.value)}
+          style={selectStyle}
+        >
+          {section.items.map((item) => (
+            <option key={item.key} value={item.path}>
+              {t(`livestock_mkt.${item.key}`)}
+            </option>
+          ))}
+        </select>
+      </div>
+    </>
   );
 }
 
@@ -303,9 +347,11 @@ const btnStyle = {
 export default function LivestockForSale() {
   const { t } = useTranslation();
   const { slug } = useParams();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { pathname } = window.location;
   const isStuds = pathname.includes('/studs/');
+  const categoryId = isStuds ? 'studs' : 'for_sale';
 
   const [data, setData] = useState(null);
   const [filters, setFilters] = useState({ breeds: [], states: [], ranches: [] });
@@ -405,6 +451,17 @@ export default function LivestockForSale() {
     ? `https://oatmealfarmnetwork.com/marketplaces/livestock/studs/${slug}`
     : `https://oatmealfarmnetwork.com/marketplaces/livestock/${slug}`;
 
+  const handleCategoryChange = (nextCategory) => {
+    const section = SIDEBAR_SECTIONS.find((s) => s.id === nextCategory);
+    if (!section?.items?.length) return;
+    const match = section.items.find((item) => item.path.endsWith(`/${slug}`));
+    navigate(match?.path || section.items[0].path);
+  };
+
+  const handleSpeciesChange = (path) => {
+    if (path) navigate(path);
+  };
+
   return (
     <div className="min-h-screen font-sans">
       <PageMeta
@@ -421,6 +478,7 @@ export default function LivestockForSale() {
         }}
       />
       <Header />
+      <LivestockHeroTabs />
 
       <div style={{ maxWidth: '1300px', margin: '0 auto', padding: '0.5rem 1rem 0' }}>
         <Breadcrumbs items={[
@@ -434,11 +492,13 @@ export default function LivestockForSale() {
 
       <div style={{ display: 'flex', alignItems: 'flex-start' }}>
 
-        <Sidebar
-          collapsed={sidebarCollapsed}
-          onToggle={() => setSidebarCollapsed(p => !p)}
-          isStuds={isStuds}
-        />
+        {SHOW_BROWSE_SIDEBAR && (
+          <Sidebar
+            collapsed={sidebarCollapsed}
+            onToggle={() => setSidebarCollapsed(p => !p)}
+            isStuds={isStuds}
+          />
+        )}
 
         <div style={{ flex: 1, minWidth: 0 }}>
 
@@ -451,8 +511,31 @@ export default function LivestockForSale() {
 
           <div style={{ display: 'flex', alignItems: 'flex-start', padding: '20px 16px', gap: '24px' }}>
 
-            <div style={{ width: '200px', flexShrink: 0 }}>
-              <div>
+            <div style={{ width: '220px', flexShrink: 0 }}>
+              <div style={{
+                backgroundColor: '#fff',
+                border: '1px solid #e5e0d6',
+                borderRadius: '8px',
+                padding: '14px',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+              }}>
+                <div style={{
+                  fontSize: '0.7rem',
+                  fontWeight: 700,
+                  letterSpacing: '0.08em',
+                  color: '#2c2c2c',
+                  marginBottom: '12px',
+                }}>
+                  {t('livestock_mkt.filters', 'FILTERS')}
+                </div>
+
+                <CategoryFilters
+                  categoryId={categoryId}
+                  slug={slug}
+                  onCategoryChange={handleCategoryChange}
+                  onSpeciesChange={handleSpeciesChange}
+                />
+
                 <div style={filterBox}>
                   <label style={filterLabel}>{t('livestock_mkt.filter_breed')}</label>
                   <select value={breedId} onChange={e => { setBreedId(Number(e.target.value)); setPage(1); }} style={selectStyle}>

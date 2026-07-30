@@ -230,6 +230,9 @@ import AnimalEdit from "./AnimalEdit";
 import MeatInventory from './MeatInventory';
 import AccountLayout from './AccountLayout';
 import AppShell from './AppShell';
+import PublicPhase1Guard from './PublicPhase1Guard';
+import Phase1EventsComingSoon from './Phase1EventsComingSoon';
+import { isPhase1PublicMode, isLoggedIn } from './phase1PublicAccess';
 import NewsFeed from "./NewsFeed";
 import ArticleDetail from "./ArticleDetail";
 import OFNComingSoon from "./OFNComingSoon";
@@ -422,7 +425,7 @@ const DeliveryRoutes        = lazyWithReload(() => import('./DeliveryRoutes.jsx'
 const Meetings              = lazyWithReload(() => import('./Meetings.jsx'));
 const AgroConsultations     = lazyWithReload(() => import('./AgroConsultations.jsx'));
 
-const App = lazyWithReload(() => import('./App.jsx'))
+const OFNHomePageLegacy = lazyWithReload(() => import('./App.jsx'))
 const About = lazyWithReload(() => import('./About.jsx'))
 const Login = lazyWithReload(() => import('./login.jsx'))
 const Signup = lazyWithReload(() => import('./Signup.jsx'))
@@ -582,6 +585,39 @@ function RequireAuth({ children }) {
   return token ? children : <Navigate to="/login" state={{ from: location }} replace />;
 }
 
+function DashboardRoute() {
+  if (isPhase1PublicMode()) return <Navigate to="/account" replace />;
+  return <Dashboard />;
+}
+
+function AccountRoute() {
+  if (isPhase1PublicMode()) {
+    return (
+      <RequireAuth>
+        <Dashboard />
+      </RequireAuth>
+    );
+  }
+  return <AccountHome />;
+}
+
+function AnimalsIndexRoute() {
+  // Phase 1: always show the public Livestock Marketplace landing (same as homepage),
+  // never the authenticated AnimalsHome herd manager.
+  if (isPhase1PublicMode()) return <LivestockMarketplace />;
+  return <AnimalsHome />;
+}
+
+function EventsIndexRoute() {
+  if (isPhase1PublicMode()) return <Phase1EventsComingSoon />;
+  return <EventsList />;
+}
+
+function LegacyHomeRoute() {
+  if (isPhase1PublicMode() && !isLoggedIn()) return <Navigate to="/" replace />;
+  return <OFNHomePageLegacy />;
+}
+
 // Redirect legacy ASP URL: /livestockmarketplace/Animals/Details.asp?ID=xxx
 function LegacyAnimalRedirect() {
   const [params] = useSearchParams();
@@ -683,13 +719,16 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         <AppShell>
         <GlobalBackBar />
         <OfflineIndicator />
+        <PublicPhase1Guard>
         <Routes>
-          <Route path="/" element={<App />} />
+          <Route path="/" element={<LivestockMarketplace />} />
+          <Route path="/ofn-home-legacy" element={<LegacyHomeRoute />} />
           <Route path="/about" element={<About />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/account" element={<AccountHome />} />
+          <Route path="/dashboard" element={<DashboardRoute />} />
+          <Route path="/account" element={<AccountRoute />} />
+          <Route path="/account/home" element={<RequireAuth><AccountHome /></RequireAuth>} />
           <Route path="/account/change-type" element={<AccountChangeType />} />
           <Route path="/account/profile" element={<AccountProfile />} />
           <Route path="/account/delete" element={<AccountDelete />} />
@@ -697,7 +736,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
           <Route path="/cart" element={<RequireAuth><UnifiedCart /></RequireAuth>} />
           <Route path="/accounts" element={<Accounts />} />
           <Route path="/accounts/new" element={<AccountNew />} />
-          <Route path="/animals" element={<AnimalsHome />} />
+          <Route path="/animals" element={<AnimalsIndexRoute />} />
           <Route path="/animals/add" element={<AnimalAddWizard />} />
           <Route path="/animals/edit" element={<AnimalEdit />} />
           <Route path="/animals/delete" element={<AnimalDelete />} />
@@ -774,6 +813,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
           <Route path="/plant-knowledgebase/varietals/:plantId" element={<PlantVarietals />} />
           <Route path="/plant-knowledgebase/varietal-detail/:varietyId" element={<PlantVarietalDetail />} />
           <Route path="/plant-knowledgebase/:category" element={<PlantCategory />} />
+          <Route path="/knowledgebase" element={<Knowledgebases />} />
           <Route path="/livestock" element={<LivestockDB />} />
           <Route path="/livestock/:species/about" element={<LivestockAbout />} />
           <Route path="/livestock/:species/breed/:breedId" element={<LivestockBreed />} />
@@ -903,8 +943,9 @@ ReactDOM.createRoot(document.getElementById('root')).render(
           <Route path="/events/cart/:cartId/receipt" element={<EventCartReceipt />} />
           <Route path="/events/:eventId/register" element={<EventRegister />} />
           <Route path="/events/:eventId" element={<EventDetail />} />
-          <Route path="/events" element={<EventsList />} />
+          <Route path="/events" element={<EventsIndexRoute />} />
 
+          <Route path="/testimonials" element={<Navigate to="/testimonials/manage" replace />} />
           <Route path="/testimonials/manage" element={<TestimonialsManage />} />
           <Route path="/testimonials/request" element={<TestimonialsRequest />} />
 
@@ -1180,6 +1221,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
 
 
         </Routes>
+        </PublicPhase1Guard>
         <SaigeWidgetGlobal />
         </AppShell>
         )} {/* end isCustomDomain ternary */}

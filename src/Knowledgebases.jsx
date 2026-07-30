@@ -13,6 +13,7 @@ import Header from './Header';
 import Footer from './Footer';
 import PageMeta from './PageMeta';
 import Breadcrumbs from './Breadcrumbs';
+import { isPhase1PublicMode } from './phase1PublicAccess';
 
 const LORA = "'Lora', 'Times New Roman', serif";
 const GREEN = '#3D6B34';
@@ -155,19 +156,27 @@ function KBCard({ kb, imageRight }) {
 
 export default function Knowledgebases() {
   const { t } = useTranslation();
+  const phase1 = isPhase1PublicMode();
+  const pageTitle = phase1
+    ? t('phase1.knowledgebase.meta_title', 'Livestock Knowledgebase | Plants, Livestock Breeds & Ingredients')
+    : 'Agricultural Knowledgebases | Plants, Livestock & Ingredients';
+  const canonical = phase1
+    ? 'https://livestockofamerica.com/knowledgebase'
+    : 'https://oatmealfarmnetwork.com/knowledgebases';
+
   return (
     <div className="min-h-screen font-sans" style={{ backgroundColor: '#f7f2e8' }}>
       <PageMeta
-        title="Agricultural Knowledgebases | Plants, Livestock & Ingredients"
+        title={pageTitle}
         description="Three trusted, free databases for the food system: 4,000+ food plant varieties, 3,000+ livestock breeds across 28 species, and 1,400+ ingredients with 14,000+ varieties."
         keywords="agricultural database, plant varieties, livestock breeds, ingredient knowledgebase, farm encyclopedia, food system reference"
-        canonical="https://oatmealfarmnetwork.com/knowledgebases"
+        canonical={canonical}
         jsonLd={{
           '@context': 'https://schema.org',
           '@type': 'CollectionPage',
-          name: 'Agricultural Knowledgebases',
-          url: 'https://oatmealfarmnetwork.com/knowledgebases',
-          description: 'Plants, livestock, and ingredient knowledgebases — a trusted source of truth for the food ecosystem.',
+          name: phase1 ? 'Livestock Knowledgebase' : 'Agricultural Knowledgebases',
+          url: canonical,
+          description: 'Plants, livestock breeds, and ingredient knowledgebases — a trusted source of truth for the food ecosystem.',
         }}
       />
       <Header />
@@ -175,7 +184,10 @@ export default function Knowledgebases() {
       {/* ─── Hero ─────────────────────────────────────────────────────── */}
       <section className="bg-white">
         <div className="max-w-7xl mx-auto px-4 py-10">
-          <Breadcrumbs items={[{ label: 'Home', to: '/' }, { label: 'Knowledgebases' }]} />
+          <Breadcrumbs items={[
+            { label: t('phase1.nav.home', 'Home'), to: '/' },
+            { label: phase1 ? t('phase1.nav.knowledgebase', 'Livestock Knowledgebase') : 'Knowledgebases' },
+          ]} />
           <h1
             className="leading-tight mt-3 mb-3"
             style={{

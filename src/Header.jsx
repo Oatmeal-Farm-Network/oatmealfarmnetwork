@@ -5,6 +5,7 @@ import { useAccount } from './AccountContext';
 import NotificationBell from './NotificationBell';
 import CartBell from './CartBell';
 import LanguageSelector from './LanguageSelector';
+import { isPhase1PublicMode, PHASE1_GUEST_NAV, PHASE1_LOGGED_IN_NAV, isPhase1LoggedInNavMode, PHASE1_KB_DROPDOWN } from './phase1PublicAccess';
 
 const OTF_API = import.meta.env.VITE_OTF_API_URL || '';
 
@@ -267,6 +268,82 @@ const Header = () => {
   // Logged-out: simple marketing nav on every page. Logged-in: full app nav.
   const isGuest = !isLoggedIn;
   const headerBg = '#8b3a2b';
+  const phase1GuestNav = isGuest && isPhase1PublicMode();
+  const phase1LoggedInNav = !isGuest && isPhase1LoggedInNavMode();
+  const guestNavItems = phase1GuestNav
+    ? null
+    : [
+        { to: '/', label: t('nav.home') },
+        { to: '/directory', label: t('nav.directory') },
+        { to: '/knowledgebases', label: t('nav.knowledgebases') },
+        { to: '/marketplaces', label: t('nav.marketplaces') },
+        { to: '/platform/saige', label: t('nav.saige', 'Saige') },
+        { to: '/contact-us', label: t('nav.contact') },
+        { to: '/login', label: t('nav.login') },
+      ];
+
+  const Phase1KbDesktopDropdown = ({ label, linkStyle, fontSize }) => (
+    <div
+      className="relative shrink-0"
+      ref={kbRef}
+      onMouseEnter={() => setKbOpen(true)}
+      onMouseLeave={() => setKbOpen(false)}
+    >
+      <button
+        type="button"
+        onClick={() => setKbOpen(!kbOpen)}
+        className="nav-link flex items-center gap-1 focus:outline-none whitespace-nowrap"
+        style={{ ...linkStyle, fontSize }}
+      >
+        {label} <ChevronIcon open={kbOpen} />
+      </button>
+      {kbOpen && (
+        <div className="absolute top-full left-0 pt-2 w-48 z-10000">
+          <div className="bg-white rounded shadow-lg overflow-hidden">
+            {PHASE1_KB_DROPDOWN.map((d) => (
+              <Link
+                key={d.to}
+                to={d.to}
+                onClick={() => setKbOpen(false)}
+                className="block px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-100"
+              >
+                {t(d.labelKey, d.fallback)}
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  const Phase1KbMobileSection = ({ label, textStyle }) => (
+    <div>
+      <button
+        type="button"
+        onClick={() => setKbMobileOpen(!kbMobileOpen)}
+        className="flex items-center justify-center gap-1 w-full"
+        style={textStyle}
+      >
+        {label} <ChevronIcon open={kbMobileOpen} />
+      </button>
+      {kbMobileOpen && (
+        <ul className="mt-2 space-y-2 text-sm">
+          {PHASE1_KB_DROPDOWN.map((d) => (
+            <li key={d.to}>
+              <Link
+                to={d.to}
+                onClick={() => { setKbMobileOpen(false); setIsOpen(false); }}
+                className="block"
+                style={{ color: 'rgba(255,255,255,0.85)' }}
+              >
+                {t(d.labelKey, d.fallback)}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
 
   return (
     <nav
@@ -278,13 +355,13 @@ const Header = () => {
       >
 
         {/* Logo */}
-        <Link to={isLoggedIn ? "/dashboard" : "/"} className="flex items-center shrink-0">
+        <Link to={isLoggedIn ? (isPhase1PublicMode() ? '/account' : '/dashboard') : '/'} className="flex items-center shrink-0">
           <img
             src="/images/Oatmeal-Farm-Network-logo-horizontal-white.webp"
-            className="h-11 md:h-[52px]"
-            alt="Oatmeal Farm Network"
-            width="160"
-            height="40"
+            className="h-12 md:h-14 w-auto rounded-md object-contain"
+            alt="Livestock of America"
+            width="200"
+            height="56"
             fetchPriority="high"
           />
         </Link>
@@ -293,27 +370,48 @@ const Header = () => {
         {isGuest ? (
           <>
             <div
-              className="hidden md:flex items-center ml-auto shrink-0"
-              style={{ gap: '1.75rem' }}
+              className={`hidden md:flex items-center ml-auto shrink-0 ${phase1GuestNav ? 'flex-wrap justify-end max-w-[62%] xl:max-w-none' : ''}`}
+              style={{ gap: phase1GuestNav ? '0.85rem' : '1.75rem' }}
             >
-              {[
-                { to: '/', label: t('nav.home') },
-                { to: '/directory', label: t('nav.directory') },
-                { to: '/knowledgebases', label: t('nav.knowledgebases') },
-                { to: '/marketplaces', label: t('nav.marketplaces') },
-                { to: '/platform/saige', label: t('nav.saige', 'Saige') },
-                { to: '/contact-us', label: t('nav.contact') },
-                { to: '/login', label: t('nav.login') },
-              ].map((item) => (
-                <Link
-                  key={item.to}
-                  to={item.to}
-                  className={guestLinkClass}
-                  style={{ ...guestLinkStyle, whiteSpace: 'nowrap', display: 'inline-block' }}
-                >
-                  {item.label}
-                </Link>
-              ))}
+              {phase1GuestNav
+                ? PHASE1_GUEST_NAV.map((item) =>
+                    item.dropdown ? (
+                      <Phase1KbDesktopDropdown
+                        key={item.to}
+                        label={t(item.labelKey, item.fallback)}
+                        linkStyle={guestLinkStyle}
+                        fontSize="12px"
+                      />
+                    ) : (
+                      <Link
+                        key={item.to}
+                        to={item.to}
+                        className={guestLinkClass}
+                        style={{
+                          ...guestLinkStyle,
+                          whiteSpace: 'nowrap',
+                          display: 'inline-block',
+                          fontSize: '12px',
+                        }}
+                      >
+                        {t(item.labelKey, item.fallback)}
+                      </Link>
+                    )
+                  )
+                : guestNavItems.map((item) => (
+                    <Link
+                      key={item.to}
+                      to={item.to}
+                      className={guestLinkClass}
+                      style={{
+                        ...guestLinkStyle,
+                        whiteSpace: 'nowrap',
+                        display: 'inline-block',
+                      }}
+                    >
+                      {item.label}
+                    </Link>
+                  ))}
             </div>
             <div className="md:hidden flex justify-end ml-auto">
               <button onClick={() => setIsOpen(!isOpen)} className="text-white text-3xl focus:outline-none" type="button" aria-label="Menu">
@@ -326,38 +424,126 @@ const Header = () => {
                 style={{ backgroundColor: '#8b3a2b' }}
               >
                 <div className="flex flex-col p-6 gap-4 text-base font-normal text-center">
-                  {[
-                    { to: '/', label: t('nav.home') },
-                    { to: '/directory', label: t('nav.directory') },
-                    { to: '/knowledgebases', label: t('nav.knowledgebases') },
-                    { to: '/marketplaces', label: t('nav.marketplaces') },
-                    { to: '/platform/saige', label: t('nav.saige', 'Saige') },
-                    { to: '/contact-us', label: t('nav.contact') },
-                    { to: '/login', label: t('nav.login') },
-                  ].map((item) => (
-                    <Link
-                      key={item.to}
-                      to={item.to}
-                      onClick={() => setIsOpen(false)}
-                      className="block"
-                      style={guestLinkStyle}
-                    >
-                      {item.label}
-                    </Link>
-                  ))}
+                  {phase1GuestNav
+                    ? PHASE1_GUEST_NAV.map((item) =>
+                        item.dropdown ? (
+                          <Phase1KbMobileSection
+                            key={item.to}
+                            label={t(item.labelKey, item.fallback)}
+                            textStyle={guestLinkStyle}
+                          />
+                        ) : (
+                          <Link
+                            key={item.to}
+                            to={item.to}
+                            onClick={() => setIsOpen(false)}
+                            className="block"
+                            style={guestLinkStyle}
+                          >
+                            {t(item.labelKey, item.fallback)}
+                          </Link>
+                        )
+                      )
+                    : guestNavItems.map((item) => (
+                        <Link
+                          key={item.to}
+                          to={item.to}
+                          onClick={() => setIsOpen(false)}
+                          className="block"
+                          style={guestLinkStyle}
+                        >
+                          {item.label}
+                        </Link>
+                      ))}
+                </div>
+              </div>
+            )}
+          </>
+        ) : phase1LoggedInNav ? (
+          <>
+            <div
+              className="hidden xl:flex flex-1 items-center justify-center min-w-0 flex-wrap"
+              style={{ gap: '1rem' }}
+            >
+              {PHASE1_LOGGED_IN_NAV.map((item) =>
+                item.dropdown ? (
+                  <Phase1KbDesktopDropdown
+                    key={item.to}
+                    label={t(item.labelKey, item.fallback)}
+                    linkStyle={appLinkStyle}
+                    fontSize="12px"
+                  />
+                ) : (
+                  <Link
+                    key={item.to}
+                    to={item.to}
+                    className="nav-link text-xs whitespace-nowrap"
+                    style={appLinkStyle}
+                  >
+                    {t(item.labelKey, item.fallback)}
+                  </Link>
+                )
+              )}
+            </div>
+            <div className="hidden xl:flex items-center shrink-0" style={{ gap: '0.75rem' }}>
+              <LanguageSelector />
+              <button
+                onClick={handleLogout}
+                title={t('nav.log_out')}
+                className="text-white/80 hover:text-white transition-colors flex items-center gap-1.5 text-xs font-semibold"
+              >
+                <LogoutIcon />
+                {t('nav.log_out', 'Logout')}
+              </button>
+            </div>
+            <div className="xl:hidden flex items-center gap-3 ml-auto shrink-0">
+              <button onClick={() => setIsOpen(!isOpen)} className="text-white text-3xl focus:outline-none" type="button" aria-label="Menu">
+                {isOpen ? '✕' : '☰'}
+              </button>
+            </div>
+            {isOpen && (
+              <div className="xl:hidden absolute top-full left-0 w-full border-t border-white/10 shadow-xl z-50" style={{ backgroundColor: headerBg }}>
+                <div className="flex flex-col p-6 gap-4 text-base font-normal text-center">
+                  {PHASE1_LOGGED_IN_NAV.map((item) =>
+                    item.dropdown ? (
+                      <Phase1KbMobileSection
+                        key={item.to}
+                        label={t(item.labelKey, item.fallback)}
+                        textStyle={appLinkStyle}
+                      />
+                    ) : (
+                      <Link
+                        key={item.to}
+                        to={item.to}
+                        onClick={() => setIsOpen(false)}
+                        className="nav-link block"
+                        style={appLinkStyle}
+                      >
+                        {t(item.labelKey, item.fallback)}
+                      </Link>
+                    )
+                  )}
+                  <button
+                    onClick={() => { setIsOpen(false); handleLogout(); }}
+                    className="flex items-center justify-center gap-2 mx-auto text-white/90"
+                    type="button"
+                  >
+                    <LogoutIcon />
+                    {t('nav.log_out', 'Logout')}
+                  </button>
                 </div>
               </div>
             )}
           </>
         ) : (
           <>
-        {/* Desktop Navigation (logged in) */}
+        {/* Desktop Navigation (logged in — full OFN nav) */}
         <div
           className="hidden xl:flex flex-1 items-center justify-center min-w-0"
           style={{ gap: '1.25rem' }}
         >
           {nav('dashboard') && (
-            <Link to="/dashboard" className="nav-link text-xs whitespace-nowrap" style={appLinkStyle}>
+            <Link to={isPhase1PublicMode() ? '/account' : '/dashboard'} className="nav-link text-xs whitespace-nowrap" style={appLinkStyle}>
               {t('nav.dashboard')}
             </Link>
           )}
@@ -474,7 +660,7 @@ const Header = () => {
           <div className="flex flex-col p-6 gap-4 text-base font-normal text-center">
 
             {nav('dashboard') && (
-              <Link to="/dashboard" onClick={() => setIsOpen(false)} className="nav-link block" style={appLinkStyle}>
+              <Link to={isPhase1PublicMode() ? '/account' : '/dashboard'} onClick={() => setIsOpen(false)} className="nav-link block" style={appLinkStyle}>
                 {t('nav.dashboard')}
               </Link>
             )}
