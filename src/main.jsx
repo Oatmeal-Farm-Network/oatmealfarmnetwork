@@ -424,6 +424,7 @@ const AgroConsultations     = lazyWithReload(() => import('./AgroConsultations.j
 
 const App = lazyWithReload(() => import('./App.jsx'))
 const About = lazyWithReload(() => import('./About.jsx'))
+const AppDownload = lazyWithReload(() => import('./AppDownload.jsx'))
 const Login = lazyWithReload(() => import('./login.jsx'))
 const Signup = lazyWithReload(() => import('./Signup.jsx'))
 const Dashboard = lazyWithReload(() => import('./Dashboard.jsx'))
@@ -656,6 +657,18 @@ function NewsArticlePage() {
 // Lazy import so install-prompt JS doesn't bloat the critical bundle.
 const InstallPrompt = React.lazy(() => import('./InstallPrompt.jsx'));
 
+// Capture the PWA install prompt as early as possible so the /app landing page
+// can offer a one-tap install even when the browser fired the event before the
+// page mounted. The page reads window.deferredInstallPrompt and the ready event.
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    window.deferredInstallPrompt = e;
+    window.dispatchEvent(new Event('ofn:installready'));
+  });
+  window.addEventListener('appinstalled', () => { window.deferredInstallPrompt = null; });
+}
+
 ReactDOM.createRoot(document.getElementById('root')).render(
   <BrowserRouter>
     <ScrollToTop />
@@ -675,6 +688,8 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         <Routes>
           <Route path="/" element={<App />} />
           <Route path="/about" element={<About />} />
+          <Route path="/app" element={<AppDownload />} />
+          <Route path="/download" element={<AppDownload />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/dashboard" element={<Dashboard />} />
