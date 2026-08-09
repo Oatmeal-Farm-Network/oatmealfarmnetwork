@@ -8,6 +8,7 @@ import PageMeta from './PageMeta';
 import { useAccount } from './AccountContext';
 import SaigeFieldsCard from './SaigeFieldsCard';
 import SaigeDraftsPanel from './SaigeDraftsPanel';
+import SaigeProposalsPanel from './SaigeProposalsPanel';
 import MarketIntelligenceWidget from './MarketIntelligenceWidget';
 import FieldHealthWidget from './FieldHealthWidget';
 
@@ -178,9 +179,10 @@ function ThinkingDots({ stage }) {
 }
 
 // ─── CHAT BUBBLE ─────────────────────────────────────────────────────────────
-function ChatBubble({ message, voiceSupported, onSpeak }) {
+function ChatBubble({ message, voiceSupported, onSpeak, onDecideProposal, decidingProposalId }) {
   const { t } = useTranslation();
   const isUser = message.role === 'user';
+  const proposals = Array.isArray(message.proposals) ? message.proposals : [];
   return (
     <div style={{ display: 'flex', justifyContent: isUser ? 'flex-end' : 'flex-start', marginBottom: 10 }}>
       {!isUser && (
@@ -206,6 +208,57 @@ function ChatBubble({ message, voiceSupported, onSpeak }) {
         paddingRight: !isUser && voiceSupported ? '2.2rem' : '13px',
       }}>
         <p style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{message.content}</p>
+        {!isUser && proposals.map((p, pi) => {
+          if (!p || p._dismissed) return null;
+          const pid = p.proposal_id || `local-${pi}`;
+          return (
+            <div
+              key={pid}
+              style={{
+                marginTop: 10,
+                padding: 10,
+                borderRadius: 10,
+                border: `1px solid ${SAIGE_BORDER}`,
+                background: '#fff',
+              }}
+            >
+              <div style={{ fontSize: 12, fontWeight: 700, color: SAIGE_GREEN_DARK, marginBottom: 4 }}>
+                {p._executed ? 'Done' : 'Approve this change?'}
+              </div>
+              <div style={{ fontSize: 12, color: '#374151', marginBottom: 8 }}>
+                {p.summary || `${p.tool || 'action'} proposed`}
+              </div>
+              {!p._executed && (
+                <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                  <button
+                    type="button"
+                    disabled={decidingProposalId === pid}
+                    onClick={() => onDecideProposal && onDecideProposal(pi, 'reject')}
+                    style={{
+                      fontSize: 12, padding: '5px 10px', borderRadius: 8,
+                      border: '1px solid #fecaca', background: '#fff', color: '#b91c1c',
+                      cursor: 'pointer', fontWeight: 600, fontFamily: SAIGE_FONT_BODY,
+                    }}
+                  >
+                    Reject
+                  </button>
+                  <button
+                    type="button"
+                    disabled={decidingProposalId === pid}
+                    onClick={() => onDecideProposal && onDecideProposal(pi, 'approve')}
+                    style={{
+                      fontSize: 12, padding: '5px 10px', borderRadius: 8,
+                      border: 'none', background: SAIGE_GREEN, color: '#fff',
+                      cursor: 'pointer', fontWeight: 600, fontFamily: SAIGE_FONT_BODY,
+                    }}
+                  >
+                    Approve
+                  </button>
+                </div>
+              )}
+            </div>
+          );
+        })}
         {!isUser && voiceSupported && (
           <button
             className="saige-speak"
@@ -635,6 +688,8 @@ export default function SaigePage() {
   const [speaking,  setSpeaking]  = useState(false);
   const [recording, setRecording] = useState(false);
   const [voiceError, setVoiceError] = useState(null);
+  const [decidingProposalId, setDecidingProposalId] = useState(null);
+  const [proposalsRefreshKey, setProposalsRefreshKey] = useState(0);
 
   const recognitionRef    = useRef(null);
   const isRecordingRef    = useRef(false);
@@ -871,6 +926,76 @@ export default function SaigePage() {
     fetchThreads();
   }
 
+  async function decideProposal(msgIdx, proposalIdx, decision) {
+    const msg = activeChat[msgIdx];
+    const proposal = msg?.proposals?.[proposalIdx];
+    if (!proposal || proposal._executed || proposal._dismissed) return;
+    const pid = proposal.proposal_id;
+    if (decision === 'reject' && !pid) {
+      setActiveChat((prev) => prev.map((m, i) => (i !== msgIdx ? m : {
+        ...m,
+        proposals: (m.proposals || []).map((pp, j) => (j === proposalIdx ? { ...pp, _dismissed: true } : pp)),
+      })));
+      return;
+    }
+    if (!pid) {
+      setActiveChat((prev) => [
+        ...prev,
+        { role: 'assistant', content: 'This proposal is missing an id — refresh and try again.' },
+      ]);
+      return;
+    }
+    if (decision === 'approve' && !window.confirm('Approve this Saige change?')) return;
+    setDecidingProposalId(pid);
+    try {
+      const thread = proposal.thread_id || activeThreadId;
+      let ok = false;
+      const r = await fetch(`${SAIGE_API}/proposals/${pid}/decide`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ decision, thread_id: thread, edits: {} }),
+      });
+      if (r.ok) {
+        ok = true;
+      } else {
+        const r2 = await fetch(`${SAIGE_API}/resume`, {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ thread_id: thread, decision, proposal_id: pid }),
+        });
+        ok = r2.ok;
+        if (!ok) {
+          const j = await r2.json().catch(() => ({}));
+          throw new Error(j?.message || j?.detail || `HTTP ${r2.status}`);
+        }
+      }
+      if (ok) {
+        setActiveChat((prev) => {
+          const next = prev.map((m, i) => (i !== msgIdx ? m : {
+            ...m,
+            proposals: (m.proposals || []).map((pp, j) => (
+              j === proposalIdx
+                ? { ...pp, _executed: decision === 'approve', _dismissed: decision === 'reject' }
+                : pp
+            )),
+          }));
+          const doneText = decision === 'approve'
+            ? `Done — ${proposal.summary || 'change applied'}.`
+            : 'Okay, I cancelled that change.';
+          return [...next, { role: 'assistant', content: doneText }];
+        });
+        setProposalsRefreshKey((k) => k + 1);
+      }
+    } catch (e) {
+      setActiveChat((prev) => [
+        ...prev,
+        { role: 'assistant', content: `Could not ${decision}: ${e.message || 'please try again.'}` },
+      ]);
+    } finally {
+      setDecidingProposalId(null);
+    }
+  }
+
   async function sendMessage(val, options = {}) {
     if (!activeThreadId || !val?.trim()) return;
     const showBubble = options.showUserBubble ?? true;
@@ -930,10 +1055,12 @@ export default function SaigePage() {
 
       if (payload.status === 'requires_input') {
         setQuiz(payload.ui);
-      } else if (payload.status === 'complete') {
+      } else if (payload.status === 'complete' || payload.status === 'interrupted' || payload.status === 'success') {
         let content = '';
         if (payload.diagnosis?.trim()) {
           content = payload.diagnosis.replace(/\*\*/g, '').replace(/##\s+/g, '').replace(/\*/g, '').trim();
+        } else if (payload.response?.trim()) {
+          content = String(payload.response).replace(/\*\*/g, '').replace(/##\s+/g, '').replace(/\*/g, '').trim();
         }
         if (payload.recommendations?.length > 0) {
           const embedded = payload.recommendations.some(r =>
@@ -947,15 +1074,27 @@ export default function SaigePage() {
           }
         }
         if (!content?.trim()) {
-          content = payload.diagnosis || t('saige_page.err_generic');
+          content = payload.diagnosis || payload.response || t('saige_page.err_generic');
         }
+        if (payload.status === 'interrupted' && !/approval/i.test(content)) {
+          content = `${content}\n\nI've prepared change proposal(s) for your approval.`.trim();
+        }
+        const proposals = Array.isArray(payload.proposals) ? payload.proposals : [];
         advisoryTypeRef.current = payload.advisory_type || null;
         setActiveChat(prev => {
-          const updated = [...prev, { role: 'assistant', content }];
-          saveThread(userId, activeThreadId, updated, 'complete', payload.advisory_type || null);
+          const updated = [
+            ...prev,
+            {
+              role: 'assistant',
+              content,
+              ...(proposals.length ? { proposals } : {}),
+            },
+          ];
+          saveThread(userId, activeThreadId, updated, payload.status || 'complete', payload.advisory_type || null);
           return updated;
         });
         fetchThreads();
+        if (proposals.length) setProposalsRefreshKey((k) => k + 1);
         if (autoSpeak && content) playTTS(content);
       } else if (payload.status === 'error') {
         setActiveChat(prev => [...prev, { role: 'assistant', content: t('saige_page.err_server', { message: payload.message || 'Please try again.' }) }]);
@@ -1055,6 +1194,12 @@ export default function SaigePage() {
               {isLoggedIn && (
                 <div style={{ maxWidth: 800, margin: '0 auto 16px' }}>
                   <SaigeDraftsPanel businessId={BusinessID ? Number(BusinessID) : 0} />
+                  <SaigeProposalsPanel
+                    key={proposalsRefreshKey}
+                    businessId={BusinessID ? Number(BusinessID) : 0}
+                    threadId={activeThreadId || ''}
+                    onChange={() => setProposalsRefreshKey((k) => k + 1)}
+                  />
                 </div>
               )}
               {isLoggedIn && activeChat.length <= 1 && (
@@ -1074,6 +1219,10 @@ export default function SaigePage() {
                   message={msg}
                   voiceSupported={ttsSupported}
                   onSpeak={playTTS}
+                  decidingProposalId={decidingProposalId}
+                  onDecideProposal={msg.role === 'assistant'
+                    ? (pi, decision) => decideProposal(i, pi, decision)
+                    : undefined}
                 />
               ))}
               {isThinking && <ThinkingDots stage={processingStage} />}
