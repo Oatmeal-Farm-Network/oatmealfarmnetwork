@@ -179,10 +179,18 @@ function ThinkingDots({ stage }) {
 }
 
 // ─── CHAT BUBBLE ─────────────────────────────────────────────────────────────
-function ChatBubble({ message, voiceSupported, onSpeak, onDecideProposal, decidingProposalId }) {
+function ChatBubble({ message, voiceSupported, onSpeak, onDecideProposal, decidingProposalId, onFeedback }) {
   const { t } = useTranslation();
   const isUser = message.role === 'user';
   const proposals = Array.isArray(message.proposals) ? message.proposals : [];
+  const [voted, setVoted] = useState(null); // null | 'up' | 'down'
+
+  function handleFeedback(rating) {
+    if (voted) return;
+    setVoted(rating > 0 ? 'up' : 'down');
+    onFeedback && onFeedback(rating);
+  }
+
   return (
     <div style={{ display: 'flex', justifyContent: isUser ? 'flex-end' : 'flex-start', marginBottom: 10 }}>
       {!isUser && (
@@ -195,83 +203,109 @@ function ChatBubble({ message, voiceSupported, onSpeak, onDecideProposal, decidi
           <img src="/images/SaigeAIIcon.webp" alt="Saige" style={{ width: 32, height: 32, objectFit: 'cover' }} />
         </div>
       )}
-      <div className={isUser ? undefined : 'saige-msg'} style={{
-        position: 'relative',
-        maxWidth: '75%', borderRadius: isUser ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
-        padding: '9px 13px',
-        background: isUser ? SAIGE_GREEN : SAIGE_LIGHT,
-        border: isUser ? 'none' : `1px solid ${SAIGE_BORDER}`,
-        color: isUser ? '#fff' : SAIGE_TEXT,
-        fontSize: 13.5, lineHeight: 1.55,
-        fontFamily: SAIGE_FONT_BODY,
-        boxShadow: '0 1px 2px rgba(15,40,10,0.06)',
-        paddingRight: !isUser && voiceSupported ? '2.2rem' : '13px',
-      }}>
-        <p style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{message.content}</p>
-        {!isUser && proposals.map((p, pi) => {
-          if (!p || p._dismissed) return null;
-          const pid = p.proposal_id || `local-${pi}`;
-          return (
-            <div
-              key={pid}
-              style={{
-                marginTop: 10,
-                padding: 10,
-                borderRadius: 10,
-                border: `1px solid ${SAIGE_BORDER}`,
-                background: '#fff',
-              }}
-            >
-              <div style={{ fontSize: 12, fontWeight: 700, color: SAIGE_GREEN_DARK, marginBottom: 4 }}>
-                {p._executed ? 'Done' : 'Approve this change?'}
-              </div>
-              <div style={{ fontSize: 12, color: '#374151', marginBottom: 8 }}>
-                {p.summary || `${p.tool || 'action'} proposed`}
-              </div>
-              {!p._executed && (
-                <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                  <button
-                    type="button"
-                    disabled={decidingProposalId === pid}
-                    onClick={() => onDecideProposal && onDecideProposal(pi, 'reject')}
-                    style={{
-                      fontSize: 12, padding: '5px 10px', borderRadius: 8,
-                      border: '1px solid #fecaca', background: '#fff', color: '#b91c1c',
-                      cursor: 'pointer', fontWeight: 600, fontFamily: SAIGE_FONT_BODY,
-                    }}
-                  >
-                    Reject
-                  </button>
-                  <button
-                    type="button"
-                    disabled={decidingProposalId === pid}
-                    onClick={() => onDecideProposal && onDecideProposal(pi, 'approve')}
-                    style={{
-                      fontSize: 12, padding: '5px 10px', borderRadius: 8,
-                      border: 'none', background: SAIGE_GREEN, color: '#fff',
-                      cursor: 'pointer', fontWeight: 600, fontFamily: SAIGE_FONT_BODY,
-                    }}
-                  >
-                    Approve
-                  </button>
+      <div style={{ position: 'relative', maxWidth: '75%' }}>
+        <div className={isUser ? undefined : 'saige-msg'} style={{
+          position: 'relative',
+          borderRadius: isUser ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
+          padding: '9px 13px',
+          background: isUser ? SAIGE_GREEN : SAIGE_LIGHT,
+          border: isUser ? 'none' : `1px solid ${SAIGE_BORDER}`,
+          color: isUser ? '#fff' : SAIGE_TEXT,
+          fontSize: 13.5, lineHeight: 1.55,
+          fontFamily: SAIGE_FONT_BODY,
+          boxShadow: '0 1px 2px rgba(15,40,10,0.06)',
+          paddingRight: !isUser && voiceSupported ? '2.2rem' : '13px',
+        }}>
+          <p style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{message.content}</p>
+          {!isUser && proposals.map((p, pi) => {
+            if (!p || p._dismissed) return null;
+            const pid = p.proposal_id || `local-${pi}`;
+            return (
+              <div
+                key={pid}
+                style={{
+                  marginTop: 10,
+                  padding: 10,
+                  borderRadius: 10,
+                  border: `1px solid ${SAIGE_BORDER}`,
+                  background: '#fff',
+                }}
+              >
+                <div style={{ fontSize: 12, fontWeight: 700, color: SAIGE_GREEN_DARK, marginBottom: 4 }}>
+                  {p._executed ? 'Done' : 'Approve this change?'}
                 </div>
-              )}
-            </div>
-          );
-        })}
-        {!isUser && voiceSupported && (
-          <button
-            className="saige-speak"
-            onClick={() => onSpeak(message.content)}
-            title={t('saige_page.read_aloud_title')}
-            style={{
-              position: 'absolute', top: 5, right: 5,
-              background: 'transparent', border: 'none',
-              color: SAIGE_GREEN, fontSize: 13, cursor: 'pointer',
-              padding: '2px 4px', opacity: 0, transition: 'opacity 0.15s',
-              lineHeight: 1,
-            }}
-          >🔊</button>
+                <div style={{ fontSize: 12, color: '#374151', marginBottom: 8 }}>
+                  {p.summary || `${p.tool || 'action'} proposed`}
+                </div>
+                {!p._executed && (
+                  <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                    <button
+                      type="button"
+                      disabled={decidingProposalId === pid}
+                      onClick={() => onDecideProposal && onDecideProposal(pi, 'reject')}
+                      style={{
+                        fontSize: 12, padding: '5px 10px', borderRadius: 8,
+                        border: '1px solid #fecaca', background: '#fff', color: '#b91c1c',
+                        cursor: 'pointer', fontWeight: 600, fontFamily: SAIGE_FONT_BODY,
+                      }}
+                    >
+                      Reject
+                    </button>
+                    <button
+                      type="button"
+                      disabled={decidingProposalId === pid}
+                      onClick={() => onDecideProposal && onDecideProposal(pi, 'approve')}
+                      style={{
+                        fontSize: 12, padding: '5px 10px', borderRadius: 8,
+                        border: 'none', background: SAIGE_GREEN, color: '#fff',
+                        cursor: 'pointer', fontWeight: 600, fontFamily: SAIGE_FONT_BODY,
+                      }}
+                    >
+                      Approve
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          {!isUser && voiceSupported && (
+            <button
+              className="saige-speak"
+              onClick={() => onSpeak(message.content)}
+              title={t('saige_page.read_aloud_title')}
+              style={{
+                position: 'absolute', top: 5, right: 5,
+                background: 'transparent', border: 'none',
+                color: SAIGE_GREEN, fontSize: 13, cursor: 'pointer',
+                padding: '2px 4px', opacity: 0, transition: 'opacity 0.15s',
+                lineHeight: 1,
+              }}
+            >🔊</button>
+          )}
+        </div>
+        {!isUser && message.content && onFeedback && (
+          <div style={{ display: 'flex', gap: 4, marginTop: 4, justifyContent: 'flex-end' }}>
+            <button
+              type="button"
+              onClick={() => handleFeedback(1)}
+              title="Helpful"
+              style={{
+                background: 'none', border: 'none', cursor: voted ? 'default' : 'pointer',
+                fontSize: 13, lineHeight: 1, padding: '1px 3px', opacity: voted === 'down' ? 0.3 : 1,
+                color: voted === 'up' ? SAIGE_GREEN : '#9ca3af',
+              }}
+            >👍</button>
+            <button
+              type="button"
+              onClick={() => handleFeedback(-1)}
+              title="Not helpful"
+              style={{
+                background: 'none', border: 'none', cursor: voted ? 'default' : 'pointer',
+                fontSize: 13, lineHeight: 1, padding: '1px 3px', opacity: voted === 'up' ? 0.3 : 1,
+                color: voted === 'down' ? '#dc2626' : '#9ca3af',
+              }}
+            >👎</button>
+          </div>
         )}
       </div>
     </div>
@@ -996,6 +1030,15 @@ export default function SaigePage() {
     }
   }
 
+  function sendFeedback(rating) {
+    if (!activeThreadId) return;
+    fetch(`${SAIGE_API}/chat/feedback`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ thread_id: activeThreadId, rating }),
+    }).catch(() => {});
+  }
+
   async function sendMessage(val, options = {}) {
     if (!activeThreadId || !val?.trim()) return;
     const showBubble = options.showUserBubble ?? true;
@@ -1220,6 +1263,7 @@ export default function SaigePage() {
                   voiceSupported={ttsSupported}
                   onSpeak={playTTS}
                   decidingProposalId={decidingProposalId}
+                  onFeedback={msg.role === 'assistant' ? sendFeedback : undefined}
                   onDecideProposal={msg.role === 'assistant'
                     ? (pi, decision) => decideProposal(i, pi, decision)
                     : undefined}

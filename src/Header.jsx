@@ -12,6 +12,7 @@ const OTF_API = import.meta.env.VITE_OTF_API_URL || '';
 // logged-out visitors get the marketing "About" page (/platform/<slug>).
 const AI_ADVISOR_ROUTE = {
   saige:     '/saige',       // Saige advisor page
+  cassia:    '/cassia',      // Cassia onboarding
   pairsley:  '/chef',        // Pairsley chat lives on the Chef Dashboard
   rosemarie: '/recipes',     // Rosemarie = Recipe Manager
   thaiyme:   '/accounting',  // Thaiyme chat lives on Accounting
@@ -221,6 +222,7 @@ const Header = () => {
     <div className="absolute top-full left-0 pt-2 w-44 z-10000">
       <div className="bg-white rounded shadow-lg overflow-hidden">
         {nav('ai_saige')    && <Link to={advisorTo('saige', isLoggedIn)}     onClick={() => setAiOpen(false)} className="block px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-100">Saige</Link>}
+        {(nav('ai_cassia') || nav('ai_saige')) && <Link to={advisorTo('cassia', isLoggedIn)}    onClick={() => setAiOpen(false)} className="block px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-100">Cassia</Link>}
         {nav('ai_pairsley') && <Link to={advisorTo('pairsley', isLoggedIn)}  onClick={() => setAiOpen(false)} className="block px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-100">Pairsley</Link>}
         {nav('ai_rosemarie')&& <Link to={advisorTo('rosemarie', isLoggedIn)} onClick={() => setAiOpen(false)} className="block px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-100">Rosemarie</Link>}
         {nav('ai_thaiyme')  && <Link to={advisorTo('thaiyme', isLoggedIn)}   onClick={() => setAiOpen(false)} className="block px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-100">Thaiyme</Link>}
@@ -231,6 +233,7 @@ const Header = () => {
   const AiMobileLinks = () => (
     <ul className="mt-2 space-y-2 text-sm">
       {nav('ai_saige')     && <li><Link to={advisorTo('saige', isLoggedIn)}     onClick={() => setIsOpen(false)} className="!text-white/80 block">Saige</Link></li>}
+      {(nav('ai_cassia') || nav('ai_saige')) && <li><Link to={advisorTo('cassia', isLoggedIn)}    onClick={() => setIsOpen(false)} className="!text-white/80 block">Cassia</Link></li>}
       {nav('ai_pairsley')  && <li><Link to={advisorTo('pairsley', isLoggedIn)}  onClick={() => setIsOpen(false)} className="!text-white/80 block">Pairsley</Link></li>}
       {nav('ai_rosemarie') && <li><Link to={advisorTo('rosemarie', isLoggedIn)} onClick={() => setIsOpen(false)} className="!text-white/80 block">Rosemarie</Link></li>}
       {nav('ai_thaiyme')   && <li><Link to={advisorTo('thaiyme', isLoggedIn)}   onClick={() => setIsOpen(false)} className="!text-white/80 block">Thaiyme</Link></li>}
