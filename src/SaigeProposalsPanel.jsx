@@ -36,7 +36,12 @@ export default function SaigeProposalsPanel({ businessId = 0, threadId = '', onC
       if (businessId) qs.set('business_id', String(businessId));
       const r = await fetch(`${SAIGE_API}/proposals?${qs}`, { headers: authHeaders() });
       const json = r.ok ? await r.json() : null;
-      setProposals(json?.proposals || []);
+      // Weekly plans stay in chat only — never show save_plan HITL cards.
+      setProposals(
+        (json?.proposals || []).filter(
+          (p) => String(p?.tool || '').toLowerCase() !== 'save_plan'
+        )
+      );
     } catch (e) {
       setError(e.message || 'Failed to load proposals');
     } finally {
