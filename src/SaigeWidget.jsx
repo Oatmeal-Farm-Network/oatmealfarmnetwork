@@ -62,7 +62,17 @@ function cleanForSpeech(text) {
 }
 
 // ── Message bubble ────────────────────────────────────────────────────────────
-function Bubble({ role, content, ttsSupported, onSpeak, threadId, onFeedback }) {
+function Bubble({
+  role,
+  content,
+  ttsSupported,
+  onSpeak,
+  threadId,
+  onFeedback,
+  proposals,
+  onDecideProposal,
+  decidingProposalId,
+}) {
   const isUser = role === 'user';
   const [voted, setVoted] = React.useState(null); // null | 'up' | 'down'
 
@@ -71,6 +81,10 @@ function Bubble({ role, content, ttsSupported, onSpeak, threadId, onFeedback }) 
     setVoted(rating > 0 ? 'up' : 'down');
     onFeedback && onFeedback(rating);
   }
+
+  const pending = Array.isArray(proposals)
+    ? proposals.filter((p) => p && !p._dismissed && !p._executed)
+    : [];
 
   return (
     <div style={{ display: 'flex', justifyContent: isUser ? 'flex-end' : 'flex-start', marginBottom: 8 }}>
@@ -98,6 +112,57 @@ function Bubble({ role, content, ttsSupported, onSpeak, threadId, onFeedback }) 
           border: isUser ? 'none' : `1px solid ${SAIGE_BORDER}`,
         }}>
           {content}
+          {!isUser && Array.isArray(proposals) && proposals.map((p, pi) => {
+            if (!p || p._dismissed) return null;
+            const pid = p.proposal_id || `local-${pi}`;
+            return (
+              <div
+                key={pid}
+                style={{
+                  marginTop: 8,
+                  padding: 8,
+                  borderRadius: 8,
+                  border: `1px solid ${SAIGE_BORDER}`,
+                  background: '#fff',
+                }}
+              >
+                <div style={{ fontSize: 11, fontWeight: 700, color: SAIGE_DARK, marginBottom: 4 }}>
+                  {p._executed ? 'Done' : 'Approve this change?'}
+                </div>
+                <div style={{ fontSize: 12, color: '#374151', marginBottom: 6 }}>
+                  {p.summary || `${p.tool || 'action'} proposed`}
+                </div>
+                {!p._executed && (
+                  <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                    <button
+                      type="button"
+                      disabled={decidingProposalId === pid}
+                      onClick={() => onDecideProposal && onDecideProposal(pi, 'reject')}
+                      style={{
+                        fontSize: 11, padding: '4px 8px', borderRadius: 6,
+                        border: '1px solid #fecaca', background: '#fff', color: '#b91c1c',
+                        cursor: 'pointer', fontWeight: 600,
+                      }}
+                    >
+                      Reject
+                    </button>
+                    <button
+                      type="button"
+                      disabled={decidingProposalId === pid}
+                      onClick={() => onDecideProposal && onDecideProposal(pi, 'approve')}
+                      style={{
+                        fontSize: 11, padding: '4px 8px', borderRadius: 6,
+                        border: 'none', background: SAIGE_GREEN, color: '#fff',
+                        cursor: 'pointer', fontWeight: 600,
+                      }}
+                    >
+                      Approve
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
         {!isUser && content && ttsSupported && (
           <button
@@ -131,6 +196,11 @@ function Bubble({ role, content, ttsSupported, onSpeak, threadId, onFeedback }) 
                 color: voted === 'down' ? '#dc2626' : '#9ca3af',
               }}
             >👎</button>
+          </div>
+        )}
+        {!isUser && pending.length > 0 && (
+          <div style={{ fontSize: 10, color: '#6b7280', marginTop: 2 }}>
+            Pending action{pending.length > 1 ? 's' : ''} need your approval
           </div>
         )}
       </div>
@@ -232,6 +302,7 @@ function ChatPanel({ businessId, fieldId, pageContext, language, onClose, onFull
   const [speaking,  setSpeaking]  = useState(false);
   const [recording, setRecording] = useState(false);
   const [voiceErr,  setVoiceErr]  = useState(null);
+  const [decidingProposalId, setDecidingProposalId] = useState(null);
 
   const recRef        = useRef(null);
   const isRecRef      = useRef(false);
@@ -468,6 +539,70 @@ function ChatPanel({ businessId, fieldId, pageContext, language, onClose, onFull
     if (el) el.scrollTop = el.scrollHeight;
   }, [messages, sending]);
 
+  const decideProposal = useCallback(async (msgIdx, proposalIdx, decision) => {
+    const msg = messages[msgIdx];
+    const proposal = msg?.proposals?.[proposalIdx];
+    if (!proposal || proposal._executed || proposal._dismissed) return;
+    const pid = proposal.proposal_id;
+    if (decision === 'reject' && !pid) {
+      setMessages((prev) => prev.map((m, i) => (i !== msgIdx ? m : {
+        ...m,
+        proposals: (m.proposals || []).map((pp, j) => (j === proposalIdx ? { ...pp, _dismissed: true } : pp)),
+      })));
+      return;
+    }
+    if (!pid) {
+      setError('This proposal is missing an id — refresh and try again.');
+      return;
+    }
+    if (decision === 'approve' && !window.confirm('Approve this Saige change?')) return;
+    setDecidingProposalId(pid);
+    setError('');
+    try {
+      const thread = proposal.thread_id || threadId;
+      let ok = false;
+      const r = await fetch(`${SAIGE_API}/proposals/${pid}/decide`, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ decision, thread_id: thread, edits: {} }),
+      });
+      if (r.ok) {
+        ok = true;
+      } else {
+        const r2 = await fetch(`${SAIGE_API}/resume`, {
+          method: 'POST',
+          headers: authHeaders(),
+          body: JSON.stringify({ thread_id: thread, decision, proposal_id: pid }),
+        });
+        ok = r2.ok;
+        if (!ok) {
+          const j = await r2.json().catch(() => ({}));
+          throw new Error(j?.message || j?.detail || `HTTP ${r2.status}`);
+        }
+      }
+      if (ok) {
+        setMessages((prev) => {
+          const next = prev.map((m, i) => (i !== msgIdx ? m : {
+            ...m,
+            proposals: (m.proposals || []).map((pp, j) => (
+              j === proposalIdx
+                ? { ...pp, _executed: decision === 'approve', _dismissed: decision === 'reject' }
+                : pp
+            )),
+          }));
+          const doneText = decision === 'approve'
+            ? `Done — ${proposal.summary || 'change applied'}.`
+            : 'Okay, I cancelled that change.';
+          return [...next, { role: 'assistant', content: doneText }];
+        });
+      }
+    } catch (e) {
+      setError(e.message || `Could not ${decision}`);
+    } finally {
+      setDecidingProposalId(null);
+    }
+  }, [messages, setMessages, threadId]);
+
   const send = useCallback(async (text) => {
     const val = (text || input).trim();
     if (!val || sending) return;
@@ -536,10 +671,18 @@ function ChatPanel({ businessId, fieldId, pageContext, language, onClose, onFull
               const diagText = evt.diagnosis
                 ? extractMapCmd(evt.diagnosis.replace(/\*\*/g, '').replace(/\*/g, '').trim())
                 : '';
-              const finalReply = cleaned || diagText || 'No response received.';
+              let finalReply = cleaned || diagText || 'No response received.';
+              if (evt.status === 'interrupted' && !/approval/i.test(finalReply)) {
+                finalReply = `${finalReply}\n\nI've prepared change proposal(s) for your approval.`.trim();
+              }
+              const proposals = Array.isArray(evt.proposals) ? evt.proposals : [];
               setMessages(prev => {
                 const upd = [...prev];
-                upd[upd.length - 1] = { role: 'assistant', content: finalReply };
+                upd[upd.length - 1] = {
+                  role: 'assistant',
+                  content: finalReply,
+                  ...(proposals.length ? { proposals } : {}),
+                };
                 return upd;
               });
               if (autoSpeak && finalReply) playTTS(finalReply);
@@ -583,12 +726,19 @@ function ChatPanel({ businessId, fieldId, pageContext, language, onClose, onFull
           if (opts.length > 0) reply += '\n\n' + opts.map(o => `• ${o}`).join('\n');
         } else if (data.status === 'error') {
           reply = data.message || 'Something went wrong. Please try again.';
+        } else if (data.status === 'interrupted') {
+          reply = data.diagnosis || data.response || 'Action requires your approval.';
         } else {
           reply = data.diagnosis || data.response || 'No response received.';
         }
         reply = extractMapCmd(reply);
         const finalReply = reply || 'No response received.';
-        setMessages([...nextMsgs, { role: 'assistant', content: finalReply }]);
+        const proposals = Array.isArray(data.proposals) ? data.proposals : [];
+        setMessages([...nextMsgs, {
+          role: 'assistant',
+          content: finalReply,
+          ...(proposals.length ? { proposals } : {}),
+        }]);
         if (autoSpeak) playTTS(finalReply);
       } catch (e) {
         setError(e.message);
@@ -686,7 +836,19 @@ function ChatPanel({ businessId, fieldId, pageContext, language, onClose, onFull
           </div>
         )}
         {messages.map((m, i) => (
-          <Bubble key={i} role={m.role} content={m.content} ttsSupported={ttsSupported} onSpeak={playTTS} onFeedback={m.role === 'assistant' ? sendFeedback : undefined} />
+          <Bubble
+            key={i}
+            role={m.role}
+            content={m.content}
+            ttsSupported={ttsSupported}
+            onSpeak={playTTS}
+            onFeedback={m.role === 'assistant' ? sendFeedback : undefined}
+            proposals={m.proposals}
+            decidingProposalId={decidingProposalId}
+            onDecideProposal={m.role === 'assistant'
+              ? (pi, decision) => decideProposal(i, pi, decision)
+              : undefined}
+          />
         ))}
         {sending && (
           <div style={{ fontSize: 12, color: '#6b7280', fontStyle: 'italic', fontFamily: FONT_BODY, padding: '4px 0' }}>
