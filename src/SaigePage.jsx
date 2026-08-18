@@ -11,6 +11,7 @@ import SaigeDraftsPanel from './SaigeDraftsPanel';
 import SaigeProposalsPanel from './SaigeProposalsPanel';
 import MarketIntelligenceWidget from './MarketIntelligenceWidget';
 import FieldHealthWidget from './FieldHealthWidget';
+import VizPlayground from './saige-viz/VizPlayground';
 
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 function normalizeSaigeApiBase(rawValue) {
@@ -1212,6 +1213,9 @@ export default function SaigePage() {
                   <MarketIntelligenceWidget />
                   <FieldHealthWidget />
                 </div>
+              )}
+              {import.meta.env.DEV && searchParams.get('vizdev') === '1' && (
+                <VizPlayground />
               )}
               {activeChat.map((msg, i) => (
                 <ChatBubble

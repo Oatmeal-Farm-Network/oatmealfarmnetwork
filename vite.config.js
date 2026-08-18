@@ -20,6 +20,13 @@ export default defineConfig({
         target: 'http://127.0.0.1:8000',
         changeOrigin: true,
         secure: false,
+        // Document navigations (typing /saige in the address bar) must hit
+        // the React app. Only XHR/fetch (Accept: application/json) go to FastAPI.
+        bypass(req) {
+          if (req.headers.accept?.includes('text/html')) {
+            return '/index.html';
+          }
+        },
       },
       '/cm': {
         target: 'http://127.0.0.1:8000',
