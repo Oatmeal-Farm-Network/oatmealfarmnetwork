@@ -1,4 +1,5 @@
 import React from 'react';
+import AlertViz from './AlertViz';
 
 const GREEN = '#3D6B34';
 const LIGHT = '#f0f7ee';
@@ -45,7 +46,7 @@ export default function VizRenderer({ spec }) {
     case 'kpi':
       return <PlaceholderCard spec={spec} label="KPI placeholder" />;
     case 'alert_card':
-      return <PlaceholderCard spec={spec} label="Alert placeholder" />;
+      return <AlertViz spec={spec} />;
     case 'table':
       return <PlaceholderCard spec={spec} label="Table placeholder" />;
     case 'progress':
