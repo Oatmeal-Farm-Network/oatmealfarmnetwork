@@ -44,7 +44,7 @@ export default function VizRenderer({ spec }) {
 
   switch (spec.type) {
     case 'kpi':
-      return <PlaceholderCard spec={spec} label="KPI placeholder" />;
+      return <KpiViz spec={spec} />;
     case 'alert_card':
       return <AlertViz spec={spec} />;
     case 'table':
