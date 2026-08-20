@@ -24,7 +24,7 @@ export default function VizPlayground() {
         Saige viz playground
       </div>
       <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 12 }}>
-        Dev only (`?vizdev=1`). Placeholders until G2–G6 / D6 land.
+        Dev only (`?vizdev=1`). Line/bar are live; other types stay placeholders until G2–G7.
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {VIZ_MOCKS.map((spec) => (

@@ -1,4 +1,6 @@
 import React from 'react';
+import LineChartViz from './LineChartViz';
+import BarChartViz from './BarChartViz';
 
 const GREEN = '#3D6B34';
 const LIGHT = '#f0f7ee';
@@ -53,9 +55,9 @@ export default function VizRenderer({ spec }) {
     case 'timeline':
       return <PlaceholderCard spec={spec} label="Timeline placeholder" />;
     case 'line_chart':
-      return <PlaceholderCard spec={spec} label="Line chart placeholder" />;
+      return <LineChartViz spec={spec} />;
     case 'bar_chart':
-      return <PlaceholderCard spec={spec} label="Bar chart placeholder" />;
+      return <BarChartViz spec={spec} />;
     default:
       return (
         <div
