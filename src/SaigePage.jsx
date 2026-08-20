@@ -12,6 +12,7 @@ import SaigeProposalsPanel from './SaigeProposalsPanel';
 import MarketIntelligenceWidget from './MarketIntelligenceWidget';
 import FieldHealthWidget from './FieldHealthWidget';
 import VizPlayground from './saige-viz/VizPlayground';
+import VizRenderer from './saige-viz/VizRenderer';
 
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 function normalizeSaigeApiBase(rawValue) {
@@ -184,6 +185,10 @@ function ChatBubble({ message, voiceSupported, onSpeak, onDecideProposal, decidi
   const { t } = useTranslation();
   const isUser = message.role === 'user';
   const proposals = Array.isArray(message.proposals) ? message.proposals : [];
+  const visualizations = !isUser && Array.isArray(message.visualizations)
+    ? message.visualizations.slice(0, 3)
+    : [];
+  const hasViz = visualizations.length > 0;
   return (
     <div style={{ display: 'flex', justifyContent: isUser ? 'flex-end' : 'flex-start', marginBottom: 10 }}>
       {!isUser && (
@@ -198,7 +203,7 @@ function ChatBubble({ message, voiceSupported, onSpeak, onDecideProposal, decidi
       )}
       <div className={isUser ? undefined : 'saige-msg'} style={{
         position: 'relative',
-        maxWidth: '75%', borderRadius: isUser ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
+        maxWidth: hasViz ? '90%' : '75%', borderRadius: isUser ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
         padding: '9px 13px',
         background: isUser ? SAIGE_GREEN : SAIGE_LIGHT,
         border: isUser ? 'none' : `1px solid ${SAIGE_BORDER}`,
@@ -209,6 +214,11 @@ function ChatBubble({ message, voiceSupported, onSpeak, onDecideProposal, decidi
         paddingRight: !isUser && voiceSupported ? '2.2rem' : '13px',
       }}>
         <p style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{message.content}</p>
+        {!isUser && visualizations.map((v) => (
+          <div key={v.id || v.title} style={{ marginTop: 10 }}>
+            <VizRenderer spec={v} />
+          </div>
+        ))}
         {!isUser && proposals.map((p, pi) => {
           if (!p || p._dismissed) return null;
           const pid = p.proposal_id || `local-${pi}`;
@@ -887,7 +897,11 @@ export default function SaigePage() {
           const res = await fetch(`${SAIGE_API}/threads/${threadId}/messages?user_id=${userId}`, { signal: ctrl.signal, headers: getAuthHeaders() });
           if (res.ok) {
             const d = await res.json();
-            messages = (d.messages || []).map(m => ({ role: m.role, content: m.content }));
+            messages = (d.messages || []).map((m) => ({
+              role: m.role,
+              content: m.content,
+              visualizations: m.metadata?.visualizations || m.visualizations || [],
+            }));
             _msgCache.set(threadId, { messages, ts: Date.now() });
           }
         } catch (e) {
@@ -1081,6 +1095,7 @@ export default function SaigePage() {
           content = `${content}\n\nI've prepared change proposal(s) for your approval.`.trim();
         }
         const proposals = Array.isArray(payload.proposals) ? payload.proposals : [];
+        const visualizations = Array.isArray(payload.visualizations) ? payload.visualizations : [];
         advisoryTypeRef.current = payload.advisory_type || null;
         setActiveChat(prev => {
           const updated = [
@@ -1089,6 +1104,7 @@ export default function SaigePage() {
               role: 'assistant',
               content,
               ...(proposals.length ? { proposals } : {}),
+              ...(visualizations.length ? { visualizations } : {}),
             },
           ];
           saveThread(userId, activeThreadId, updated, payload.status || 'complete', payload.advisory_type || null);
