@@ -1,4 +1,5 @@
 import React from 'react';
+import { VizActions, VizEmpty } from './VizActions';
 
 const GREEN = '#3D6B34';
 const BORDER = '#c7dfc2';
@@ -10,6 +11,8 @@ export default function ProgressViz({ spec }) {
   const data = spec?.data || {};
   const { label, percent, hint } = data;
   const pct = Math.max(0, Math.min(100, Number(percent) || 0));
+
+  if (!label && percent == null) return <VizEmpty spec={spec} />;
 
   return (
     <div
@@ -32,6 +35,7 @@ export default function ProgressViz({ spec }) {
         <div style={{ width: `${pct}%`, height: '100%', background: GREEN, borderRadius: 999 }} />
       </div>
       {hint && <div style={{ fontSize: 12, color: MUTED, marginTop: 6 }}>{hint}</div>}
+      <VizActions spec={spec} />
     </div>
   );
 }

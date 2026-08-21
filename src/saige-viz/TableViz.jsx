@@ -1,4 +1,5 @@
 import React from 'react';
+import { VizActions, VizEmpty } from './VizActions';
 
 const BORDER = '#c7dfc2';
 const HEADER_BG = '#f0f7ee';
@@ -12,22 +13,7 @@ export default function TableViz({ spec }) {
   const columns = Array.isArray(data.columns) ? data.columns : [];
   const rows = Array.isArray(data.rows) ? data.rows : [];
 
-  if (rows.length === 0) {
-    return (
-      <div
-        style={{
-          background: '#fff',
-          border: `1px solid ${BORDER}`,
-          borderRadius: 12,
-          padding: '12px 14px',
-          fontFamily: FONT,
-        }}
-      >
-        <div style={{ fontSize: 15, fontWeight: 700, color: '#1f2937' }}>{spec.title}</div>
-        <div style={{ fontSize: 12, color: MUTED, marginTop: 6 }}>No data yet</div>
-      </div>
-    );
-  }
+  if (rows.length === 0) return <VizEmpty spec={spec} />;
 
   const visibleRows = rows.slice(0, MAX_ROWS);
   const extraCount = rows.length - visibleRows.length;
@@ -89,6 +75,7 @@ export default function TableViz({ spec }) {
       {extraCount > 0 && (
         <div style={{ fontSize: 12, color: MUTED, marginTop: 8 }}>+{extraCount} more</div>
       )}
+      <VizActions spec={spec} />
     </div>
   );
 }

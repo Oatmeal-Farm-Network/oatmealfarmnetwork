@@ -5,6 +5,7 @@ import KpiViz from './KpiViz';
 import AlertViz from './AlertViz';
 import TableViz from './TableViz';
 import TimelineViz from './TimelineViz';
+import ProgressViz from './ProgressViz';
 
 const GREEN = '#3D6B34';
 const LIGHT = '#f0f7ee';
