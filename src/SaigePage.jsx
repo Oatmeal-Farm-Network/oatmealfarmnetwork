@@ -188,6 +188,8 @@ function ChatBubble({ message, voiceSupported, onSpeak, onDecideProposal, decidi
   const visualizations = !isUser && Array.isArray(message.visualizations)
     ? message.visualizations.slice(0, 3)
     : [];
+  const mapViz = visualizations.filter((v) => v && (v.type === 'farm_map' || v.type === 'field_map'));
+  const cardViz = visualizations.filter((v) => v && v.type !== 'farm_map' && v.type !== 'field_map');
   const hasViz = visualizations.length > 0;
   return (
     <div style={{ display: 'flex', justifyContent: isUser ? 'flex-end' : 'flex-start', marginBottom: 10 }}>
@@ -201,9 +203,10 @@ function ChatBubble({ message, voiceSupported, onSpeak, onDecideProposal, decidi
           <img src="/images/SaigeAIIcon.webp" alt="Saige" style={{ width: 32, height: 32, objectFit: 'cover' }} />
         </div>
       )}
+      <div style={{ maxWidth: hasViz ? '90%' : '75%', minWidth: 0, flex: hasViz ? '1 1 auto' : undefined }}>
       <div className={isUser ? undefined : 'saige-msg'} style={{
         position: 'relative',
-        maxWidth: hasViz ? '90%' : '75%', borderRadius: isUser ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
+        maxWidth: '100%', borderRadius: isUser ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
         padding: '9px 13px',
         background: isUser ? SAIGE_GREEN : SAIGE_LIGHT,
         border: isUser ? 'none' : `1px solid ${SAIGE_BORDER}`,
@@ -214,7 +217,7 @@ function ChatBubble({ message, voiceSupported, onSpeak, onDecideProposal, decidi
         paddingRight: !isUser && voiceSupported ? '2.2rem' : '13px',
       }}>
         <p style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{message.content}</p>
-        {!isUser && visualizations.map((v) => (
+        {!isUser && cardViz.map((v) => (
           <div key={v.id || v.title} style={{ marginTop: 10 }}>
             <VizRenderer spec={v} />
           </div>
@@ -284,6 +287,12 @@ function ChatBubble({ message, voiceSupported, onSpeak, onDecideProposal, decidi
             }}
           >🔊</button>
         )}
+      </div>
+      {!isUser && mapViz.map((v) => (
+        <div key={v.id || v.title} style={{ marginTop: 10, width: '100%' }}>
+          <VizRenderer spec={v} />
+        </div>
+      ))}
       </div>
     </div>
   );

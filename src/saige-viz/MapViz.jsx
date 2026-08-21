@@ -1,0 +1,191 @@
+import React, { useMemo } from 'react';
+import { VizActions, VizEmpty } from './VizActions';
+import { useAccount } from '../AccountContext';
+import { ndviColor, useFields, useRaster } from '../precisionAgUtils';
+
+const GREEN = '#3D6B34';
+const BORDER = '#c7dfc2';
+const MUTED = '#6b7280';
+const FONT = 'Montserrat, system-ui, sans-serif';
+const PALETTE = ['#3D6B34', '#819360', '#2c4f25', '#A3301E', '#E6A23C', '#5C7A9A'];
+
+const cardStyle = {
+  background: '#fff',
+  border: `1px solid ${BORDER}`,
+  borderRadius: 12,
+  padding: '12px 14px',
+  fontFamily: FONT,
+};
+
+function indexColor(v, min, max, indexKey) {
+  const t = max > min ? (v - min) / (max - min) : 0.5;
+  if (indexKey === 'NDWI') {
+    return `rgb(${Math.round(210 - t * 180)},${Math.round(230 - t * 60)},${Math.round(100 + t * 155)})`;
+  }
+  if (indexKey === 'NDRE') {
+    return `rgb(${Math.round(30 + t * 20)},${Math.round(60 + t * 90)},${Math.round(180 - t * 60)})`;
+  }
+  return ndviColor(t);
+}
+
+function ringsFromGeojson(raw) {
+  try {
+    const geom = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    if (!geom) return [];
+    if (geom.type === 'Polygon') return [geom.coordinates[0]];
+    if (geom.type === 'MultiPolygon') return geom.coordinates.map((p) => p[0]);
+    if (geom.type === 'Feature') return ringsFromGeojson(geom.geometry);
+    if (geom.type === 'FeatureCollection') {
+      return (geom.features || []).flatMap((f) => ringsFromGeojson(f));
+    }
+    return [];
+  } catch {
+    return [];
+  }
+}
+
+function projectFields(fields) {
+  const rings = [];
+  fields.forEach((f, i) => {
+    const raw = f.boundary_geojson || f.BoundaryGeoJSON || '';
+    ringsFromGeojson(raw).forEach((ring) => rings.push({ ring, i, name: f.name || f.Name || `Field ${f.fieldid || f.id}` }));
+  });
+  const pts = rings.flatMap((r) => r.ring);
+  if (!pts.length) return null;
+  const lons = pts.map((p) => p[0]);
+  const lats = pts.map((p) => p[1]);
+  const minLon = Math.min(...lons);
+  const maxLon = Math.max(...lons);
+  const minLat = Math.min(...lats);
+  const maxLat = Math.max(...lats);
+  const dx = maxLon - minLon || 1;
+  const dy = maxLat - minLat || 1;
+  const pad = 6;
+  return rings.map((item) => ({
+    ...item,
+    d: item.ring
+      .map(([lon, lat]) => {
+        const x = pad + ((lon - minLon) / dx) * (100 - pad * 2);
+        const y = pad + ((maxLat - lat) / dy) * (100 - pad * 2);
+        return `${x},${y}`;
+      })
+      .join(' '),
+  }));
+}
+
+function FieldRaster({ fieldId, layer, analysisId }) {
+  const { data, loading, error } = useRaster(fieldId, layer, 32, analysisId || null);
+  if (loading) {
+    return (
+      <div style={{ height: 220, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: MUTED }}>
+        Loading map…
+      </div>
+    );
+  }
+  if (error || !data?.grid?.values) {
+    return (
+      <div style={{ height: 220, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: MUTED }}>
+        {error ? 'Map unavailable' : 'No raster yet — run an analysis'}
+      </div>
+    );
+  }
+  const { values, rows: gRows, cols: gCols } = data.grid;
+  const min = data.raster?.min ?? 0;
+  const max = data.raster?.max ?? 1;
+  const cellW = 100 / gCols;
+  const cellH = 100 / gRows;
+  return (
+    <div style={{ width: '100%', height: 220, borderRadius: 8, overflow: 'hidden', position: 'relative' }}>
+      <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ width: '100%', height: '100%', display: 'block' }}>
+        {values.flatMap((row, r) => row.map((v, c) => (
+          <rect
+            key={`${r}-${c}`}
+            x={c * cellW}
+            y={r * cellH}
+            width={cellW + 0.1}
+            height={cellH + 0.1}
+            fill={v == null ? '#F3F4F6' : indexColor(v, min, max, layer)}
+          />
+        )))}
+      </svg>
+    </div>
+  );
+}
+
+function FarmOutlines({ fieldIds }) {
+  const { BusinessID } = useAccount();
+  const fields = useFields(BusinessID);
+  const wanted = useMemo(() => new Set(fieldIds.map((id) => String(id))), [fieldIds]);
+  const selected = fields.filter((f) => wanted.has(String(f.fieldid || f.id)));
+  const projected = useMemo(() => projectFields(selected), [selected]);
+
+  if (!BusinessID) {
+    return (
+      <div style={{ height: 220, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: MUTED }}>
+        Open a farm page to load field boundaries
+      </div>
+    );
+  }
+  if (!fields.length) {
+    return (
+      <div style={{ height: 220, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: MUTED }}>
+        Loading fields…
+      </div>
+    );
+  }
+  if (!projected) {
+    return (
+      <div style={{ height: 220, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: MUTED, textAlign: 'center', padding: 12 }}>
+        {selected.length
+          ? 'These fields have no boundaries drawn yet'
+          : 'No matching fields on this farm'}
+      </div>
+    );
+  }
+  return (
+    <div style={{ width: '100%', height: 220, borderRadius: 8, overflow: 'hidden', background: '#f0f7ee' }}>
+      <svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet" style={{ width: '100%', height: '100%', display: 'block' }}>
+        {projected.map((p, i) => (
+          <polygon
+            key={i}
+            points={p.d}
+            fill={PALETTE[p.i % PALETTE.length]}
+            fillOpacity={0.35}
+            stroke={GREEN}
+            strokeWidth="0.8"
+          >
+            <title>{p.name}</title>
+          </polygon>
+        ))}
+      </svg>
+    </div>
+  );
+}
+
+/** In-chat map. Spec stays IDs-only; this component fetches rasters/GeoJSON like Precision Ag. */
+export default function MapViz({ spec }) {
+  const data = spec?.data || {};
+  const isFarm = spec?.type === 'farm_map';
+  const fieldIds = Array.isArray(data.field_ids) ? data.field_ids : [];
+  const fieldId = data.field_id;
+  const layer = data.layer || 'NDVI';
+  const analysisId = data.analysis_id || null;
+
+  if (isFarm && fieldIds.length === 0) return <VizEmpty spec={spec} />;
+  if (!isFarm && (fieldId == null || fieldId === '')) return <VizEmpty spec={spec} />;
+
+  return (
+    <div style={cardStyle}>
+      <div style={{ fontSize: 11, fontWeight: 700, color: GREEN, textTransform: 'uppercase', letterSpacing: 0.4 }}>
+        {spec.type}
+      </div>
+      <div style={{ fontSize: 15, fontWeight: 600, color: '#1f2937', marginTop: 4, marginBottom: 8 }}>
+        {spec.title}
+      </div>
+      {isFarm
+        ? <FarmOutlines fieldIds={fieldIds} />
+        : <FieldRaster fieldId={fieldId} layer={layer} analysisId={analysisId} />}
+      <VizActions spec={spec} />
+    </div>
+  );
+}

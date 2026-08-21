@@ -6,6 +6,7 @@ import AlertViz from './AlertViz';
 import TableViz from './TableViz';
 import TimelineViz from './TimelineViz';
 import ProgressViz from './ProgressViz';
+import MapViz from './MapViz';
 
 const GREEN = '#3D6B34';
 const LIGHT = '#f0f7ee';
@@ -21,6 +22,8 @@ const KNOWN_TYPES = [
   'alert_card',
   'timeline',
   'progress',
+  'farm_map',
+  'field_map',
 ];
 
 function PlaceholderCard({ spec, label }) {
@@ -63,6 +66,9 @@ export default function VizRenderer({ spec }) {
       return <LineChartViz spec={spec} />;
     case 'bar_chart':
       return <BarChartViz spec={spec} />;
+    case 'farm_map':
+    case 'field_map':
+      return <MapViz spec={spec} />;
     default:
       return (
         <div

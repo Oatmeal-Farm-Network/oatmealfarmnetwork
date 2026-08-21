@@ -16,6 +16,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAccount } from './AccountContext';
 import { useLanguage } from './LanguageContext';
+import VizRenderer from './saige-viz/VizRenderer';
 
 function normalizeSaigeApiBase(rawValue) {
   // Base URL already includes the /saige prefix (unified local backend mounts
@@ -70,11 +71,18 @@ function Bubble({
   threadId,
   onFeedback,
   proposals,
+  visualizations,
   onDecideProposal,
   decidingProposalId,
 }) {
   const isUser = role === 'user';
   const [voted, setVoted] = React.useState(null); // null | 'up' | 'down'
+  const vizSpecs = !isUser && Array.isArray(visualizations)
+    ? visualizations.slice(0, 2)
+    : [];
+  const mapViz = vizSpecs.filter((v) => v && (v.type === 'farm_map' || v.type === 'field_map'));
+  const cardViz = vizSpecs.filter((v) => v && v.type !== 'farm_map' && v.type !== 'field_map');
+  const hasViz = vizSpecs.length > 0;
 
   function handleFeedback(rating) {
     if (voted) return;
@@ -97,7 +105,7 @@ function Bubble({
           <img src="/images/SaigeAIIcon.webp" alt="" style={{ width: 26, height: 26, objectFit: 'cover' }} />
         </div>
       )}
-      <div style={{ position: 'relative', maxWidth: '82%' }}>
+      <div style={{ position: 'relative', maxWidth: hasViz ? '90%' : '82%' }}>
         <div style={{
           padding: '8px 12px',
           paddingRight: !isUser && ttsSupported ? '28px' : '12px',
@@ -112,6 +120,11 @@ function Bubble({
           border: isUser ? 'none' : `1px solid ${SAIGE_BORDER}`,
         }}>
           {content}
+          {!isUser && cardViz.map((v) => (
+            <div key={v.id || v.title} style={{ marginTop: 8 }}>
+              <VizRenderer spec={v} />
+            </div>
+          ))}
           {!isUser && Array.isArray(proposals) && proposals.map((p, pi) => {
             if (!p || p._dismissed) return null;
             const pid = p.proposal_id || `local-${pi}`;
@@ -203,6 +216,11 @@ function Bubble({
             Pending action{pending.length > 1 ? 's' : ''} need your approval
           </div>
         )}
+        {!isUser && mapViz.map((v) => (
+          <div key={v.id || v.title} style={{ marginTop: 8, width: '100%' }}>
+            <VizRenderer spec={v} />
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -676,12 +694,14 @@ function ChatPanel({ businessId, fieldId, pageContext, language, onClose, onFull
                 finalReply = `${finalReply}\n\nI've prepared change proposal(s) for your approval.`.trim();
               }
               const proposals = Array.isArray(evt.proposals) ? evt.proposals : [];
+              const visualizations = Array.isArray(evt.visualizations) ? evt.visualizations : [];
               setMessages(prev => {
                 const upd = [...prev];
                 upd[upd.length - 1] = {
                   role: 'assistant',
                   content: finalReply,
                   ...(proposals.length ? { proposals } : {}),
+                  ...(visualizations.length ? { visualizations } : {}),
                 };
                 return upd;
               });
@@ -734,10 +754,12 @@ function ChatPanel({ businessId, fieldId, pageContext, language, onClose, onFull
         reply = extractMapCmd(reply);
         const finalReply = reply || 'No response received.';
         const proposals = Array.isArray(data.proposals) ? data.proposals : [];
+        const visualizations = Array.isArray(data.visualizations) ? data.visualizations : [];
         setMessages([...nextMsgs, {
           role: 'assistant',
           content: finalReply,
           ...(proposals.length ? { proposals } : {}),
+          ...(visualizations.length ? { visualizations } : {}),
         }]);
         if (autoSpeak) playTTS(finalReply);
       } catch (e) {
@@ -844,6 +866,7 @@ function ChatPanel({ businessId, fieldId, pageContext, language, onClose, onFull
             onSpeak={playTTS}
             onFeedback={m.role === 'assistant' ? sendFeedback : undefined}
             proposals={m.proposals}
+            visualizations={m.visualizations}
             decidingProposalId={decidingProposalId}
             onDecideProposal={m.role === 'assistant'
               ? (pi, decision) => decideProposal(i, pi, decision)
