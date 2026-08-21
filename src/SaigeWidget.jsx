@@ -80,6 +80,8 @@ function Bubble({
   const vizSpecs = !isUser && Array.isArray(visualizations)
     ? visualizations.slice(0, 2)
     : [];
+  const mapViz = vizSpecs.filter((v) => v && (v.type === 'farm_map' || v.type === 'field_map'));
+  const cardViz = vizSpecs.filter((v) => v && v.type !== 'farm_map' && v.type !== 'field_map');
   const hasViz = vizSpecs.length > 0;
 
   function handleFeedback(rating) {
@@ -118,7 +120,7 @@ function Bubble({
           border: isUser ? 'none' : `1px solid ${SAIGE_BORDER}`,
         }}>
           {content}
-          {!isUser && vizSpecs.map((v) => (
+          {!isUser && cardViz.map((v) => (
             <div key={v.id || v.title} style={{ marginTop: 8 }}>
               <VizRenderer spec={v} />
             </div>
@@ -214,6 +216,11 @@ function Bubble({
             Pending action{pending.length > 1 ? 's' : ''} need your approval
           </div>
         )}
+        {!isUser && mapViz.map((v) => (
+          <div key={v.id || v.title} style={{ marginTop: 8, width: '100%' }}>
+            <VizRenderer spec={v} />
+          </div>
+        ))}
       </div>
     </div>
   );

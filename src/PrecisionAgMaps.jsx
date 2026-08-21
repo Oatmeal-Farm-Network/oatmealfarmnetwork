@@ -252,20 +252,31 @@ export default function PrecisionAgMaps() {
   const pa = k => t(`precision_ag.${k}`);
   const [searchParams] = useSearchParams();
   const BusinessID = searchParams.get('BusinessID');
+  const urlFieldId = searchParams.get('field_id') || '';
+  const urlLayer = searchParams.get('layer') || '';
   const { Business, LoadBusiness } = useAccount();
   const fields = useFields(BusinessID);
-  const [selectedFieldId, setSelectedFieldId] = useState('');
+  const [selectedFieldId, setSelectedFieldId] = useState(urlFieldId);
   const { analyses, loading } = useAnalyses(selectedFieldId);
   const [selectedAnalysisIdx, setSelectedAnalysisIdx] = useState(0);
-  const [selectedIndex, setSelectedIndex] = useState('NDVI');
+  const validLayer = INDEX_CONFIGS.some((c) => c.key === urlLayer);
+  const [selectedIndex, setSelectedIndex] = useState(validLayer ? urlLayer : 'NDVI');
   const [showIndexTip,  setShowIndexTip]  = useState(false);
   const [rasterRange,   setRasterRange]   = useState(null);
 
   useEffect(() => { LoadBusiness(BusinessID); }, [BusinessID]);
   useEffect(() => {
-    if (fields.length > 0 && !selectedFieldId)
+    if (fields.length === 0) return;
+    const match = urlFieldId
+      && fields.some((f) => String(f.fieldid || f.id) === String(urlFieldId));
+    if (match) {
+      setSelectedFieldId(String(urlFieldId));
+      return;
+    }
+    if (!selectedFieldId) {
       setSelectedFieldId(String(fields[0].fieldid || fields[0].id));
-  }, [fields]);
+    }
+  }, [fields, urlFieldId]);
   useEffect(() => { setSelectedAnalysisIdx(0); setRasterRange(null); }, [selectedFieldId]);
   useEffect(() => { setRasterRange(null); }, [selectedIndex, selectedAnalysisIdx]);
 
