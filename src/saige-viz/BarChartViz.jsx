@@ -9,7 +9,7 @@ import {
   Tooltip,
   Cell,
 } from 'recharts';
-import { ChartEmpty } from './LineChartViz';
+import { VizActions, VizEmpty } from './VizActions';
 
 const GREEN = '#3D6B34';
 const BORDER = '#c7dfc2';
@@ -31,7 +31,7 @@ export default function BarChartViz({ spec }) {
   const yKey = data.yKey || 'yield';
   const unit = data.unit || '';
 
-  if (series.length < 2) return <ChartEmpty spec={spec} />;
+  if (series.length < 2) return <VizEmpty spec={spec} />;
 
   return (
     <div style={cardStyle}>
@@ -63,6 +63,7 @@ export default function BarChartViz({ spec }) {
           </BarChart>
         </ResponsiveContainer>
       </div>
+      <VizActions spec={spec} />
     </div>
   );
 }

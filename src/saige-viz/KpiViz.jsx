@@ -1,4 +1,5 @@
 import React from 'react';
+import { VizActions, VizEmpty } from './VizActions';
 
 const GREEN = '#3D6B34';
 const BORDER = '#c7dfc2';
@@ -12,6 +13,8 @@ export default function KpiViz({ spec }) {
   const hasValue = value !== null && value !== undefined;
   const hasDelta = typeof delta === 'number';
   const deltaColor = hasDelta && delta < 0 ? AMBER : GREEN;
+
+  if (Object.keys(data).length === 0) return <VizEmpty spec={spec} />;
 
   return (
     <div
@@ -42,6 +45,7 @@ export default function KpiViz({ spec }) {
         )}
       </div>
       {hint && <div style={{ fontSize: 12, color: MUTED, marginTop: 6 }}>{hint}</div>}
+      <VizActions spec={spec} />
     </div>
   );
 }

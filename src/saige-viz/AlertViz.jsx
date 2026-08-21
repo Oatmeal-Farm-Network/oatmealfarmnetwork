@@ -1,4 +1,5 @@
 import React from 'react';
+import { VizActions, VizEmpty } from './VizActions';
 
 const SEV_STYLE = {
   critical: { bg: '#FEF2F2', border: '#FECACA', text: '#991B1B' },
@@ -14,6 +15,8 @@ export default function AlertViz({ spec }) {
   const data = spec?.data || {};
   const { severity, message, field_name } = data;
   const style = SEV_STYLE[severity] || SEV_STYLE.medium;
+
+  if (Object.keys(data).length === 0) return <VizEmpty spec={spec} />;
 
   return (
     <div
@@ -46,6 +49,7 @@ export default function AlertViz({ spec }) {
       </div>
       {message && <div style={{ fontSize: 13, color: '#1f2937', marginTop: 4 }}>{message}</div>}
       {field_name && <div style={{ fontSize: 12, color: MUTED, marginTop: 6 }}>{field_name}</div>}
+      <VizActions spec={spec} />
     </div>
   );
 }
