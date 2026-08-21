@@ -7530,6 +7530,11 @@
     "suggestions": "Try: \"How is my {{field}} doing?\" · \"Any fields need irrigation?\" · \"Show me a benchmark\"",
     "top_field": "top field"
   },
+  "saige_viz": {
+    "no_data": "No data yet",
+    "more_rows": "+{{count}} more",
+    "open_full": "View full"
+  },
   "rosemarie_chat": {
     "subtitle": "Your artisan producer AI",
     "btn_new": "New",

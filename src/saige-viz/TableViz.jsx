@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { VizActions, VizEmpty } from './VizActions';
 
 const BORDER = '#c7dfc2';
@@ -9,6 +10,7 @@ const FONT = 'Montserrat, system-ui, sans-serif';
 const MAX_ROWS = 20;
 
 export default function TableViz({ spec }) {
+  const { t } = useTranslation();
   const data = spec?.data || {};
   const columns = Array.isArray(data.columns) ? data.columns : [];
   const rows = Array.isArray(data.rows) ? data.rows : [];
@@ -73,7 +75,9 @@ export default function TableViz({ spec }) {
         </table>
       </div>
       {extraCount > 0 && (
-        <div style={{ fontSize: 12, color: MUTED, marginTop: 8 }}>+{extraCount} more</div>
+        <div style={{ fontSize: 12, color: MUTED, marginTop: 8 }}>
+          {t('saige_viz.more_rows', { count: extraCount })}
+        </div>
       )}
       <VizActions spec={spec} />
     </div>

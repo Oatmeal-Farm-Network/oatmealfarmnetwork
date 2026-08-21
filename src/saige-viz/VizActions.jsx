@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 const GREEN = '#3D6B34';
 const BORDER = '#c7dfc2';
@@ -9,8 +10,9 @@ const FONT = 'Montserrat, system-ui, sans-serif';
  * the proposal "Approve" button on SaigePage. Renders nothing if the
  * spec has no actions. */
 export function VizActions({ spec }) {
+  const { t } = useTranslation();
   const actions = Array.isArray(spec?.actions) ? spec.actions : [];
-  const valid = actions.filter((a) => a && a.href && a.label);
+  const valid = actions.filter((a) => a && a.href);
   if (valid.length === 0) return null;
 
   return (
@@ -32,7 +34,7 @@ export function VizActions({ spec }) {
             display: 'inline-block',
           }}
         >
-          {action.label}
+          {action.label || t('saige_viz.open_full')}
         </a>
       ))}
     </div>
@@ -42,6 +44,7 @@ export function VizActions({ spec }) {
 /** Shared empty state: title + "No data yet" + first action if any.
  * Used by every card when its spec.data has nothing to show. */
 export function VizEmpty({ spec }) {
+  const { t } = useTranslation();
   return (
     <div
       style={{
@@ -53,7 +56,7 @@ export function VizEmpty({ spec }) {
       }}
     >
       <div style={{ fontSize: 15, fontWeight: 600, color: '#1f2937' }}>{spec?.title}</div>
-      <div style={{ fontSize: 12, color: MUTED, marginTop: 6 }}>No data yet</div>
+      <div style={{ fontSize: 12, color: MUTED, marginTop: 6 }}>{t('saige_viz.no_data')}</div>
       <VizActions spec={spec} />
     </div>
   );
