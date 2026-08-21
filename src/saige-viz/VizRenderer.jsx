@@ -4,7 +4,7 @@ import BarChartViz from './BarChartViz';
 import KpiViz from './KpiViz';
 import AlertViz from './AlertViz';
 import TableViz from './TableViz';
-import ProgressViz from './ProgressViz';
+import TimelineViz from './TimelineViz';
 
 const GREEN = '#3D6B34';
 const LIGHT = '#f0f7ee';
@@ -57,7 +57,7 @@ export default function VizRenderer({ spec }) {
     case 'progress':
       return <ProgressViz spec={spec} />;
     case 'timeline':
-      return <PlaceholderCard spec={spec} label="Timeline placeholder" />;
+      return <TimelineViz spec={spec} />;
     case 'line_chart':
       return <LineChartViz spec={spec} />;
     case 'bar_chart':
