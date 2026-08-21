@@ -55,7 +55,7 @@ export default function VizRenderer({ spec }) {
     case 'table':
       return <TableViz spec={spec} />;
     case 'progress':
-      return <PlaceholderCard spec={spec} label="Progress placeholder" />;
+      return <ProgressViz spec={spec} />;
     case 'timeline':
       return <TimelineViz spec={spec} />;
     case 'line_chart':
