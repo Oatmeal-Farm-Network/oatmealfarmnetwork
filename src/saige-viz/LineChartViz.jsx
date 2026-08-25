@@ -7,6 +7,7 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
+  Legend,
 } from 'recharts';
 import { VizActions, VizEmpty } from './VizActions';
 
@@ -34,6 +35,7 @@ export default function LineChartViz({ spec }) {
   const xKey = data.xKey || 'date';
   const yKey = data.yKey || 'value';
   const unit = data.unit || '';
+  const seriesName = spec.title || yKey;
 
   if (series.length < 2) return <VizEmpty spec={spec} />;
 
@@ -56,13 +58,15 @@ export default function LineChartViz({ spec }) {
                 const n = typeof value === 'number' ? value : Number(value);
                 const shown = Number.isFinite(n) ? n : value;
                 const label = unit ? `${shown} ${unit}` : shown;
-                return [label, spec.title || yKey];
+                return [label, seriesName];
               }}
               labelFormatter={(label) => formatTick(label)}
             />
+            <Legend wrapperStyle={{ fontSize: 11, fontFamily: FONT }} />
             <Line
               type="monotone"
               dataKey={yKey}
+              name={seriesName}
               stroke={GREEN}
               strokeWidth={2.5}
               dot={{ fill: GREEN, r: 3 }}

@@ -7,6 +7,7 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
+  Legend,
   Cell,
 } from 'recharts';
 import { VizActions, VizEmpty } from './VizActions';
@@ -30,6 +31,7 @@ export default function BarChartViz({ spec }) {
   const xKey = data.xKey || 'field';
   const yKey = data.yKey || 'yield';
   const unit = data.unit || '';
+  const seriesName = spec.title || yKey;
 
   if (series.length < 2) return <VizEmpty spec={spec} />;
 
@@ -52,10 +54,11 @@ export default function BarChartViz({ spec }) {
                 const n = typeof value === 'number' ? value : Number(value);
                 const shown = Number.isFinite(n) ? n : value;
                 const label = unit ? `${shown} ${unit}` : shown;
-                return [label, spec.title || yKey];
+                return [label, seriesName];
               }}
             />
-            <Bar dataKey={yKey} radius={[4, 4, 0, 0]}>
+            <Legend wrapperStyle={{ fontSize: 11, fontFamily: FONT }} />
+            <Bar dataKey={yKey} name={seriesName} radius={[4, 4, 0, 0]}>
               {series.map((_, i) => (
                 <Cell key={i} fill={PALETTE[i % PALETTE.length]} />
               ))}
