@@ -188,8 +188,8 @@ function ChatBubble({ message, voiceSupported, onSpeak, onDecideProposal, decidi
   const visualizations = !isUser && Array.isArray(message.visualizations)
     ? message.visualizations.slice(0, 3)
     : [];
-  const mapViz = visualizations.filter((v) => v && (v.type === 'farm_map' || v.type === 'field_map'));
-  const cardViz = visualizations.filter((v) => v && v.type !== 'farm_map' && v.type !== 'field_map');
+  const mapViz = visualizations.filter((v) => v && (v.type === 'farm_map' || v.type === 'field_map' || v.type === 'heatmap'));
+  const cardViz = visualizations.filter((v) => v && v.type !== 'farm_map' && v.type !== 'field_map' && v.type !== 'heatmap');
   const hasViz = visualizations.length > 0;
   return (
     <div style={{ display: 'flex', justifyContent: isUser ? 'flex-end' : 'flex-start', marginBottom: 10 }}>

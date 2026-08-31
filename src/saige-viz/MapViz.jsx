@@ -162,17 +162,85 @@ function FarmOutlines({ fieldIds }) {
   );
 }
 
+const HEAT_FILL = ['#c7dfc2', '#E6A23C', '#A3301E'];
+
+function GeoHeatmap({ points }) {
+  const valid = (Array.isArray(points) ? points : []).filter((p) => (
+    Number.isFinite(Number(p.lat)) && Number.isFinite(Number(p.lon))
+  ));
+  if (!valid.length) {
+    return (
+      <div style={{ height: 220, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: MUTED }}>
+        No scout locations
+      </div>
+    );
+  }
+  const lats = valid.map((p) => Number(p.lat));
+  const lons = valid.map((p) => Number(p.lon));
+  let minLat = Math.min(...lats);
+  let maxLat = Math.max(...lats);
+  let minLon = Math.min(...lons);
+  let maxLon = Math.max(...lons);
+  const span = Math.max(maxLat - minLat, maxLon - minLon, 0.002);
+  const pad = span * 0.25;
+  minLat -= pad;
+  maxLat += pad;
+  minLon -= pad;
+  maxLon += pad;
+  const dx = maxLon - minLon || 1;
+  const dy = maxLat - minLat || 1;
+  return (
+    <div style={{ width: '100%', height: 220, borderRadius: 8, overflow: 'hidden', background: '#f0f7ee' }}>
+      <svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet" style={{ width: '100%', height: '100%', display: 'block' }}>
+        {valid.map((p, i) => {
+          const x = ((Number(p.lon) - minLon) / dx) * 100;
+          const y = ((maxLat - Number(p.lat)) / dy) * 100;
+          const w = Math.max(1, Math.min(3, Number(p.weight) || 1));
+          return (
+            <circle
+              key={`${p.lat}-${p.lon}-${i}`}
+              cx={x}
+              cy={y}
+              r={2.2 + w}
+              fill={HEAT_FILL[w - 1]}
+              fillOpacity={0.72}
+              stroke="#2c4f25"
+              strokeWidth="0.4"
+            >
+              <title>{p.label || 'Scout'}</title>
+            </circle>
+          );
+        })}
+      </svg>
+    </div>
+  );
+}
+
 /** In-chat map. Spec stays IDs-only; this component fetches rasters/GeoJSON like Precision Ag. */
 export default function MapViz({ spec }) {
   const data = spec?.data || {};
   const isFarm = spec?.type === 'farm_map';
+  const isHeat = spec?.type === 'heatmap';
   const fieldIds = Array.isArray(data.field_ids) ? data.field_ids : [];
   const fieldId = data.field_id;
   const layer = data.layer || 'NDVI';
   const analysisId = data.analysis_id || null;
+  const points = Array.isArray(data.points) ? data.points : [];
+  const kind = data.kind || (points.length ? 'geo' : 'raster');
 
   if (isFarm && fieldIds.length === 0) return <VizEmpty spec={spec} />;
-  if (!isFarm && (fieldId == null || fieldId === '')) return <VizEmpty spec={spec} />;
+  if (isHeat && kind === 'geo' && points.length === 0) return <VizEmpty spec={spec} />;
+  if (!isFarm && !isHeat && (fieldId == null || fieldId === '')) return <VizEmpty spec={spec} />;
+  if (isHeat && kind !== 'geo' && (fieldId == null || fieldId === '')) return <VizEmpty spec={spec} />;
+
+  let body;
+  if (isFarm) {
+    body = <FarmOutlines fieldIds={fieldIds} />;
+  } else if (isHeat && kind === 'geo') {
+    body = <GeoHeatmap points={points} />;
+  } else {
+    body = <FieldRaster fieldId={fieldId} layer={layer} analysisId={analysisId} />;
+  }
 
   return (
     <div style={cardStyle}>
@@ -182,9 +250,7 @@ export default function MapViz({ spec }) {
       <div style={{ fontSize: 15, fontWeight: 600, color: '#1f2937', marginTop: 4, marginBottom: 8 }}>
         {spec.title}
       </div>
-      {isFarm
-        ? <FarmOutlines fieldIds={fieldIds} />
-        : <FieldRaster fieldId={fieldId} layer={layer} analysisId={analysisId} />}
+      {body}
       <VizActions spec={spec} />
     </div>
   );
