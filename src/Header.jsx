@@ -344,17 +344,6 @@ const Header = () => {
               </li>
             )}
 
-            {/* Get the App — visible whether or not the user is logged in */}
-            <li>
-              <Link
-                to="/app"
-                title={t('nav.get_app', 'Get the App')}
-                className="flex items-center gap-1.5 rounded-full border border-white/60 px-3 py-1 text-white hover:bg-white hover:text-[#A3301E] transition-colors text-sm font-semibold whitespace-nowrap"
-              >
-                <span aria-hidden="true">📱</span> {t('nav.get_app', 'Get the App')}
-              </Link>
-            </li>
-
             {isLoggedIn ? (
               <>
                 {nav('contact') && <li><Link to="/contact-us" className="nav-link">{t('nav.contact')}</Link></li>}
@@ -497,16 +486,6 @@ const Header = () => {
               </li>
             )}
 
-            {/* Get the App — always visible in the mobile menu */}
-            <li className="flex justify-center">
-              <Link
-                to="/app"
-                onClick={() => setIsOpen(false)}
-                className="inline-flex items-center gap-1.5 rounded-full border border-white/60 px-4 py-1.5 !text-white hover:bg-white hover:!text-[#A3301E] transition-colors text-sm font-semibold"
-              >
-                <span aria-hidden="true">📱</span> {t('nav.get_app', 'Get the App')}
-              </Link>
-            </li>
 
             {isLoggedIn ? (
               <>
