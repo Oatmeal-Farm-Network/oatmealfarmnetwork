@@ -13,6 +13,7 @@ import MarketIntelligenceWidget from './MarketIntelligenceWidget';
 import FieldHealthWidget from './FieldHealthWidget';
 import VizPlayground from './saige-viz/VizPlayground';
 import VizRenderer from './saige-viz/VizRenderer';
+import VizSkeleton from './saige-viz/VizSkeleton';
 
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 function normalizeSaigeApiBase(rawValue) {
@@ -161,20 +162,25 @@ function ThinkingDots({ stage }) {
     return () => clearInterval(iv);
   }, [stage, msgs.length]);
   return (
-    <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: 12 }}>
-      <div style={{
-        maxWidth: '80%', borderRadius: 12, padding: '12px 16px',
-        background: SAIGE_LIGHT,
-        border: `1px solid ${SAIGE_BORDER}`, color: SAIGE_TEXT,
-        display: 'flex', alignItems: 'center', gap: 10,
-        fontFamily: SAIGE_FONT_BODY,
-      }}>
-        <svg style={{ width: 18, height: 18, flexShrink: 0, animation: 'saige-spin 1s linear infinite' }}
-          fill="none" viewBox="0 0 24 24" stroke={SAIGE_GREEN} strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round"
-            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-        </svg>
-        <span style={{ fontSize: 13, color: SAIGE_GREEN_DARK, fontStyle: 'italic' }}>{msgs[msgIdx]}</span>
+    <div style={{ marginBottom: 12 }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+        <div style={{
+          maxWidth: '80%', borderRadius: 12, padding: '12px 16px',
+          background: SAIGE_LIGHT,
+          border: `1px solid ${SAIGE_BORDER}`, color: SAIGE_TEXT,
+          display: 'flex', alignItems: 'center', gap: 10,
+          fontFamily: SAIGE_FONT_BODY,
+        }}>
+          <svg style={{ width: 18, height: 18, flexShrink: 0, animation: 'saige-spin 1s linear infinite' }}
+            fill="none" viewBox="0 0 24 24" stroke={SAIGE_GREEN} strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round"
+              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+          </svg>
+          <span style={{ fontSize: 13, color: SAIGE_GREEN_DARK, fontStyle: 'italic' }}>{msgs[msgIdx]}</span>
+        </div>
+      </div>
+      <div style={{ maxWidth: '90%', marginTop: 10 }}>
+        <VizSkeleton />
       </div>
     </div>
   );

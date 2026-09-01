@@ -203,6 +203,9 @@ export const VIZ_MOCKS = [
     actions: [
       { label: 'Open dashboard', href: '/precision-ag/fields' },
       { label: 'Open benchmark', href: '/precision-ag/benchmark' },
+    ],
+  },
+  {
     id: 'viz_heatmap_ndvi',
     type: 'heatmap',
     title: 'NDVI zones — North 40',

@@ -17,6 +17,7 @@ import { useTranslation } from 'react-i18next';
 import { useAccount } from './AccountContext';
 import { useLanguage } from './LanguageContext';
 import VizRenderer from './saige-viz/VizRenderer';
+import VizSkeleton from './saige-viz/VizSkeleton';
 
 function normalizeSaigeApiBase(rawValue) {
   // Base URL already includes the /saige prefix (unified local backend mounts
@@ -874,8 +875,13 @@ function ChatPanel({ businessId, fieldId, pageContext, language, onClose, onFull
           />
         ))}
         {sending && (
-          <div style={{ fontSize: 12, color: '#6b7280', fontStyle: 'italic', fontFamily: FONT_BODY, padding: '4px 0' }}>
-            Saige is thinking…
+          <div style={{ padding: '4px 0' }}>
+            <div style={{ fontSize: 12, color: '#6b7280', fontStyle: 'italic', fontFamily: FONT_BODY }}>
+              Saige is thinking…
+            </div>
+            <div style={{ marginTop: 8 }}>
+              <VizSkeleton />
+            </div>
           </div>
         )}
         {error && <div style={{ fontSize: 11, color: '#991b1b', marginTop: 4 }}>{error}</div>}
