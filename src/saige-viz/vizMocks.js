@@ -135,6 +135,7 @@ export const VIZ_MOCKS = [
       field_ids: [12, 15],
     },
     actions: [
+      { label: 'Open dashboard', href: '/precision-ag/fields' },
       { label: 'Open map', href: '/precision-ag/analysis/maps' },
     ],
   },
@@ -170,6 +171,38 @@ export const VIZ_MOCKS = [
     actions: [],
   },
   {
+    id: 'viz_kpi_farm_ndvi',
+    type: 'kpi',
+    title: 'Farm NDVI',
+    source_tool: 'get_farm_benchmark_tool',
+    data: {
+      value: 0.52,
+      unit: '',
+      hint: '2 fields · best North 40',
+    },
+    actions: [
+      { label: 'Open dashboard', href: '/precision-ag/fields' },
+      { label: 'Open benchmark', href: '/precision-ag/benchmark' },
+    ],
+  },
+  {
+    id: 'viz_bar_farm_ndvi',
+    type: 'bar_chart',
+    title: 'NDVI by field',
+    source_tool: 'get_farm_benchmark_tool',
+    data: {
+      xKey: 'field',
+      yKey: 'ndvi',
+      unit: '',
+      series: [
+        { field: 'North 40', ndvi: 0.56 },
+        { field: 'West 20', ndvi: 0.48 },
+        { field: 'South Bottom', ndvi: 0.51 },
+      ],
+    },
+    actions: [
+      { label: 'Open dashboard', href: '/precision-ag/fields' },
+      { label: 'Open benchmark', href: '/precision-ag/benchmark' },
     id: 'viz_heatmap_ndvi',
     type: 'heatmap',
     title: 'NDVI zones — North 40',

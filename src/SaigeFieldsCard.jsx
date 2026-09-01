@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
 const SAIGE_API = import.meta.env.VITE_SAIGE_API_URL || 'http://localhost:8000/saige';
@@ -277,6 +278,15 @@ export default function SaigeFieldsCard() {
             {t('saige_fields_card.more_fields', { count: fields.length - 6 })}
           </div>
         )}
+      </div>
+
+      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', fontSize: 12, fontFamily: 'var(--font-mont, sans-serif)' }}>
+        <Link to="/precision-ag/fields" style={{ color: '#3D6B34', fontWeight: 700, textDecoration: 'none' }}>
+          Open dashboard
+        </Link>
+        <Link to="/precision-ag/benchmark" style={{ color: '#3D6B34', fontWeight: 700, textDecoration: 'none' }}>
+          Open benchmark
+        </Link>
       </div>
 
       {/* Quick-start suggestions */}
