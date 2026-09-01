@@ -25,6 +25,7 @@ const KNOWN_TYPES = [
   'progress',
   'farm_map',
   'field_map',
+  'heatmap',
   'calendar',
 ];
 
@@ -70,6 +71,7 @@ export default function VizRenderer({ spec }) {
       return <BarChartViz spec={spec} />;
     case 'farm_map':
     case 'field_map':
+    case 'heatmap':
       return <MapViz spec={spec} />;
     case 'calendar':
       return <CalendarViz spec={spec} />;

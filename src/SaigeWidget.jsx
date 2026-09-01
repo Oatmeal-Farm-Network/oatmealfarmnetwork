@@ -80,8 +80,8 @@ function Bubble({
   const vizSpecs = !isUser && Array.isArray(visualizations)
     ? visualizations.slice(0, 2)
     : [];
-  const mapViz = vizSpecs.filter((v) => v && (v.type === 'farm_map' || v.type === 'field_map'));
-  const cardViz = vizSpecs.filter((v) => v && v.type !== 'farm_map' && v.type !== 'field_map');
+  const mapViz = vizSpecs.filter((v) => v && (v.type === 'farm_map' || v.type === 'field_map' || v.type === 'heatmap'));
+  const cardViz = vizSpecs.filter((v) => v && v.type !== 'farm_map' && v.type !== 'field_map' && v.type !== 'heatmap');
   const hasViz = vizSpecs.length > 0;
 
   function handleFeedback(rating) {
