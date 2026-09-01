@@ -199,6 +199,9 @@ export const VIZ_MOCKS = [
     },
     actions: [
       { label: 'Open field', href: '/precision-ag/fields/12' },
+    ],
+  },
+  {
     id: 'viz_kpi_ndvi_compare',
     type: 'kpi',
     title: 'NDVI — North 40 vs West 20',
