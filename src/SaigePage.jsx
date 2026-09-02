@@ -1165,7 +1165,14 @@ export default function SaigePage() {
     <>
     <PageMeta title="Saige | Agricultural AI Assistant | OFN" noIndex />
     <AccountLayout Business={Business} BusinessID={BusinessID} PeopleID={userId} pageTitle={t('saige_page.page_title')} breadcrumbs={[{ label: t('nav.dashboard'), to: '/dashboard' }, { label: t('saige_page.breadcrumb') }]}>
-      <div style={{ margin: '-24px', display: 'flex', flexDirection: 'column', height: 'calc(100dvh - 180px)' }}>
+      <div style={{
+        margin: '-24px -24px calc(-24px - 3rem)',
+        display: 'flex',
+        flexDirection: 'column',
+        // AppShell already offsets the 72px header; 180px subtracted it again and left a hole.
+        height: 'calc(100dvh - 108px)',
+        overflow: 'hidden',
+      }}>
 
         <div style={{
           padding: '10px 18px', background: SAIGE_GREEN, color: '#fff',
@@ -1302,7 +1309,7 @@ export default function SaigePage() {
             )}
 
             {!quiz && !isThinking && (
-              <div style={{ padding: '12px 20px 16px', borderTop: `1px solid ${SAIGE_BORDER}`, background: '#fff' }}>
+              <div style={{ padding: '12px 20px 16px', borderTop: `1px solid ${SAIGE_BORDER}`, background: '#fff', flexShrink: 0 }}>
                 <div style={{ display: 'flex', gap: 10, maxWidth: 800, margin: '0 auto', alignItems: 'center' }}>
                   {sttSupported && (
                     <button
