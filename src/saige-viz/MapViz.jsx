@@ -46,11 +46,25 @@ function ringsFromGeojson(raw) {
 
 function projectFields(fields) {
   const rings = [];
+  const points = [];
   fields.forEach((f, i) => {
     const raw = f.boundary_geojson || f.BoundaryGeoJSON || '';
-    ringsFromGeojson(raw).forEach((ring) => rings.push({ ring, i, name: f.name || f.Name || `Field ${f.fieldid || f.id}` }));
+    const name = f.name || f.Name || `Field ${f.fieldid || f.id}`;
+    const fromGeo = ringsFromGeojson(raw);
+    if (fromGeo.length) {
+      fromGeo.forEach((ring) => rings.push({ ring, i, name }));
+      return;
+    }
+    const lat = Number(f.latitude ?? f.Latitude);
+    const lon = Number(f.longitude ?? f.Longitude);
+    if (Number.isFinite(lat) && Number.isFinite(lon)) {
+      points.push({ lat, lon, i, name });
+    }
   });
-  const pts = rings.flatMap((r) => r.ring);
+  const pts = [
+    ...rings.flatMap((r) => r.ring),
+    ...points.map((p) => [p.lon, p.lat]),
+  ];
   if (!pts.length) return null;
   const lons = pts.map((p) => p[0]);
   const lats = pts.map((p) => p[1]);
@@ -61,16 +75,21 @@ function projectFields(fields) {
   const dx = maxLon - minLon || 1;
   const dy = maxLat - minLat || 1;
   const pad = 6;
-  return rings.map((item) => ({
-    ...item,
-    d: item.ring
-      .map(([lon, lat]) => {
-        const x = pad + ((lon - minLon) / dx) * (100 - pad * 2);
-        const y = pad + ((maxLat - lat) / dy) * (100 - pad * 2);
-        return `${x},${y}`;
-      })
-      .join(' '),
-  }));
+  const toXY = (lon, lat) => {
+    const x = pad + ((lon - minLon) / dx) * (100 - pad * 2);
+    const y = pad + ((maxLat - lat) / dy) * (100 - pad * 2);
+    return `${x},${y}`;
+  };
+  return {
+    polygons: rings.map((item) => ({
+      ...item,
+      d: item.ring.map(([lon, lat]) => toXY(lon, lat)).join(' '),
+    })),
+    markers: points.map((p) => {
+      const [x, y] = toXY(p.lon, p.lat).split(',');
+      return { ...p, x, y };
+    }),
+  };
 }
 
 function FieldRaster({ fieldId, layer, analysisId, businessId }) {
@@ -128,7 +147,7 @@ function FarmOutlines({ fieldIds, businessId }) {
   const resolved = businessId || BusinessID || readStoredBusinessId();
   const fields = useFields(resolved);
   const wanted = useMemo(() => new Set(fieldIds.map((id) => String(id))), [fieldIds]);
-  const selected = fields.filter((f) => wanted.has(String(f.fieldid || f.id)));
+  const selected = fields.filter((f) => wanted.has(String(f.fieldid || f.FieldID || f.id)));
   const projected = useMemo(() => projectFields(selected), [selected]);
 
   if (!resolved) {
@@ -145,7 +164,7 @@ function FarmOutlines({ fieldIds, businessId }) {
       </div>
     );
   }
-  if (!projected) {
+  if (!projected || (!projected.polygons.length && !projected.markers.length)) {
     return (
       <div style={{ height: 220, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: MUTED, textAlign: 'center', padding: 12 }}>
         {selected.length
@@ -157,9 +176,9 @@ function FarmOutlines({ fieldIds, businessId }) {
   return (
     <div style={{ width: '100%', height: 220, borderRadius: 8, overflow: 'hidden', background: '#f0f7ee' }}>
       <svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet" style={{ width: '100%', height: '100%', display: 'block' }}>
-        {projected.map((p, i) => (
+        {projected.polygons.map((p, i) => (
           <polygon
-            key={i}
+            key={`poly-${i}`}
             points={p.d}
             fill={PALETTE[p.i % PALETTE.length]}
             fillOpacity={0.35}
@@ -168,6 +187,19 @@ function FarmOutlines({ fieldIds, businessId }) {
           >
             <title>{p.name}</title>
           </polygon>
+        ))}
+        {projected.markers.map((p, i) => (
+          <circle
+            key={`pt-${i}`}
+            cx={p.x}
+            cy={p.y}
+            r="3.2"
+            fill={PALETTE[p.i % PALETTE.length]}
+            stroke={GREEN}
+            strokeWidth="0.8"
+          >
+            <title>{p.name}</title>
+          </circle>
         ))}
       </svg>
     </div>
