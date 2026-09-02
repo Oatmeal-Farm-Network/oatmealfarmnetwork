@@ -1164,8 +1164,15 @@ export default function SaigePage() {
   return (
     <>
     <PageMeta title="Saige | Agricultural AI Assistant | OFN" noIndex />
-    <AccountLayout fillHeight Business={Business} BusinessID={BusinessID} PeopleID={userId} pageTitle={t('saige_page.page_title')} breadcrumbs={[{ label: t('nav.dashboard'), to: '/dashboard' }, { label: t('saige_page.breadcrumb') }]}>
-      <div style={{ margin: '0 -24px -24px', display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+    <AccountLayout Business={Business} BusinessID={BusinessID} PeopleID={userId} pageTitle={t('saige_page.page_title')} breadcrumbs={[{ label: t('nav.dashboard'), to: '/dashboard' }, { label: t('saige_page.breadcrumb') }]}>
+      <div style={{
+        margin: '-24px -24px calc(-24px - 3rem)',
+        display: 'flex',
+        flexDirection: 'column',
+        // AppShell already offsets the 72px header; 180px subtracted it again and left a hole.
+        height: 'calc(100dvh - 108px)',
+        overflow: 'hidden',
+      }}>
 
         <div style={{
           padding: '10px 18px', background: SAIGE_GREEN, color: '#fff',
