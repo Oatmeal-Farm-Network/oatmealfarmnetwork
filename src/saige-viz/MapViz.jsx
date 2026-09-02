@@ -73,7 +73,7 @@ function projectFields(fields) {
   }));
 }
 
-function FieldRaster({ fieldId, layer, analysisId }) {
+function FieldRaster({ fieldId, layer, analysisId, businessId }) {
   const { data, loading, error } = useRaster(fieldId, layer, 32, analysisId || null);
   if (loading) {
     return (
@@ -84,8 +84,11 @@ function FieldRaster({ fieldId, layer, analysisId }) {
   }
   if (error || !data?.grid?.values) {
     return (
-      <div style={{ height: 220, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: MUTED }}>
-        {error ? 'Map unavailable' : 'No raster yet — run an analysis'}
+      <div>
+        <FarmOutlines fieldIds={[fieldId]} businessId={businessId} />
+        <div style={{ fontSize: 11, color: MUTED, textAlign: 'center', marginTop: 6 }}>
+          {error ? 'Satellite raster unavailable — field outline' : 'No raster yet — run an analysis'}
+        </div>
       </div>
     );
   }
@@ -112,14 +115,23 @@ function FieldRaster({ fieldId, layer, analysisId }) {
   );
 }
 
-function FarmOutlines({ fieldIds }) {
+function readStoredBusinessId() {
+  try {
+    return localStorage.getItem('selected_business_id') || null;
+  } catch {
+    return null;
+  }
+}
+
+function FarmOutlines({ fieldIds, businessId }) {
   const { BusinessID } = useAccount();
-  const fields = useFields(BusinessID);
+  const resolved = businessId || BusinessID || readStoredBusinessId();
+  const fields = useFields(resolved);
   const wanted = useMemo(() => new Set(fieldIds.map((id) => String(id))), [fieldIds]);
   const selected = fields.filter((f) => wanted.has(String(f.fieldid || f.id)));
   const projected = useMemo(() => projectFields(selected), [selected]);
 
-  if (!BusinessID) {
+  if (!resolved) {
     return (
       <div style={{ height: 220, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: MUTED }}>
         Open a farm page to load field boundaries
@@ -227,6 +239,8 @@ export default function MapViz({ spec }) {
   const analysisId = data.analysis_id || null;
   const points = Array.isArray(data.points) ? data.points : [];
   const kind = data.kind || (points.length ? 'geo' : 'raster');
+  const { BusinessID } = useAccount();
+  const businessId = data.business_id || BusinessID || readStoredBusinessId();
 
   if (isFarm && fieldIds.length === 0) return <VizEmpty spec={spec} />;
   if (isHeat && kind === 'geo' && points.length === 0) return <VizEmpty spec={spec} />;
@@ -235,11 +249,11 @@ export default function MapViz({ spec }) {
 
   let body;
   if (isFarm) {
-    body = <FarmOutlines fieldIds={fieldIds} />;
+    body = <FarmOutlines fieldIds={fieldIds} businessId={businessId} />;
   } else if (isHeat && kind === 'geo') {
     body = <GeoHeatmap points={points} />;
   } else {
-    body = <FieldRaster fieldId={fieldId} layer={layer} analysisId={analysisId} />;
+    body = <FieldRaster fieldId={fieldId} layer={layer} analysisId={analysisId} businessId={businessId} />;
   }
 
   return (
