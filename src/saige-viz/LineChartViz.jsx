@@ -37,7 +37,7 @@ export default function LineChartViz({ spec }) {
   const unit = data.unit || '';
   const seriesName = spec.title || yKey;
 
-  if (series.length < 2) return <VizEmpty spec={spec} />;
+  if (series.length < 1) return <VizEmpty spec={spec} />;
 
   return (
     <div style={cardStyle}>
@@ -69,7 +69,7 @@ export default function LineChartViz({ spec }) {
               name={seriesName}
               stroke={GREEN}
               strokeWidth={2.5}
-              dot={{ fill: GREEN, r: 3 }}
+              dot={{ fill: GREEN, r: series.length === 1 ? 5 : 3 }}
               activeDot={{ r: 5 }}
             />
           </LineChart>

@@ -252,7 +252,7 @@ export default function PrecisionAgMaps() {
   const pa = k => t(`precision_ag.${k}`);
   const [searchParams] = useSearchParams();
   const BusinessID = searchParams.get('BusinessID');
-  const urlFieldId = searchParams.get('field_id') || '';
+  const urlFieldId = searchParams.get('field_id') || searchParams.get('FieldID') || '';
   const urlLayer = searchParams.get('layer') || '';
   const { Business, LoadBusiness } = useAccount();
   const fields = useFields(BusinessID);
