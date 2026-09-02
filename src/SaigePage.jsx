@@ -1164,8 +1164,8 @@ export default function SaigePage() {
   return (
     <>
     <PageMeta title="Saige | Agricultural AI Assistant | OFN" noIndex />
-    <AccountLayout Business={Business} BusinessID={BusinessID} PeopleID={userId} pageTitle={t('saige_page.page_title')} breadcrumbs={[{ label: t('nav.dashboard'), to: '/dashboard' }, { label: t('saige_page.breadcrumb') }]}>
-      <div style={{ margin: '-24px', display: 'flex', flexDirection: 'column', height: 'calc(100dvh - 180px)' }}>
+    <AccountLayout fillHeight Business={Business} BusinessID={BusinessID} PeopleID={userId} pageTitle={t('saige_page.page_title')} breadcrumbs={[{ label: t('nav.dashboard'), to: '/dashboard' }, { label: t('saige_page.breadcrumb') }]}>
+      <div style={{ margin: '0 -24px -24px', display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
 
         <div style={{
           padding: '10px 18px', background: SAIGE_GREEN, color: '#fff',
@@ -1302,7 +1302,7 @@ export default function SaigePage() {
             )}
 
             {!quiz && !isThinking && (
-              <div style={{ padding: '12px 20px 16px', borderTop: `1px solid ${SAIGE_BORDER}`, background: '#fff' }}>
+              <div style={{ padding: '12px 20px 16px', borderTop: `1px solid ${SAIGE_BORDER}`, background: '#fff', flexShrink: 0 }}>
                 <div style={{ display: 'flex', gap: 10, maxWidth: 800, margin: '0 auto', alignItems: 'center' }}>
                   {sttSupported && (
                     <button
