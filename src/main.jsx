@@ -1,6 +1,6 @@
 import React, { lazy, Suspense, useEffect } from 'react'
 import ReactDOM from 'react-dom/client'
-import { BrowserRouter, Routes, Route, Navigate, useSearchParams, useLocation } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useSearchParams, useLocation, useParams } from 'react-router-dom'
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -28,6 +28,20 @@ function OatSenseRedirect() {
 function ScoutingRedirect() {
   const { search } = useLocation();
   return <Navigate to={`/oatsense/notes${search}`} replace />;
+}
+
+// Old Saige viz buttons used /precision-ag/fields/:id which matches no SPA route.
+function PrecisionAgFieldIdRedirect() {
+  const { fieldId } = useParams();
+  const [searchParams] = useSearchParams();
+  let businessId = searchParams.get('BusinessID') || '';
+  if (!businessId) {
+    try { businessId = localStorage.getItem('selected_business_id') || ''; } catch { /* ignore */ }
+  }
+  const qs = new URLSearchParams();
+  if (businessId) qs.set('BusinessID', businessId);
+  if (fieldId) qs.set('FieldID', fieldId);
+  return <Navigate to={`/precision-ag/analyses?${qs.toString()}`} replace />;
 }
 
 // Persistent Saige widget — mounted once above <Routes> so open/closed state survives
@@ -738,6 +752,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
           <Route path="/precision-ag/water-use" element={<RequireAuth><PrecisionAgWaterUse /></RequireAuth>} />
           <Route path="/chef" element={<ChefDashboard />} />
           <Route path="/precision-ag/fields" element={<RequireAuth><PrecisionAgFields /></RequireAuth>} />
+          <Route path="/precision-ag/fields/:fieldId" element={<RequireAuth><PrecisionAgFieldIdRedirect /></RequireAuth>} />
           <Route path="/precision-ag/add" element={<RequireAuth><PrecisionAgAdd /></RequireAuth>} />
           <Route path="/precision-ag/analyses" element={<RequireAuth><PrecisionAgAnalyses /></RequireAuth>} />
           <Route path="/precision-ag/analysis/histograms" element={<RequireAuth><PrecisionAgHistograms /></RequireAuth>} />
