@@ -25,21 +25,9 @@ function isoDay(value) {
   return /^\d{4}-\d{2}-\d{2}/.test(s) ? s.slice(0, 10) : '';
 }
 
-function parseYearMonth(data, events) {
-  let year = Number(data.year);
-  let month = Number(data.month);
-  if (!Number.isFinite(year) || !Number.isFinite(month) || month < 1 || month > 12) {
-    const first = isoDay(events[0]?.date);
-    if (first) {
-      year = Number(first.slice(0, 4));
-      month = Number(first.slice(5, 7));
-    }
-  }
+function parseYearMonth() {
   const now = new Date();
-  if (!Number.isFinite(year) || !Number.isFinite(month) || month < 1 || month > 12) {
-    return { year: now.getFullYear(), month: now.getMonth() + 1 };
-  }
-  return { year, month };
+  return { year: now.getFullYear(), month: now.getMonth() + 1 };
 }
 
 function groupByDate(events) {
@@ -58,7 +46,7 @@ export default function CalendarViz({ spec }) {
   const events = Array.isArray(data.events) ? data.events.filter((e) => e && isoDay(e.date)) : [];
   if (events.length === 0) return <VizEmpty spec={spec} />;
 
-  const { year, month } = parseYearMonth(data, events);
+  const { year, month } = parseYearMonth();
   const byDate = groupByDate(events);
   const prefix = `${year}-${String(month).padStart(2, '0')}-`;
   const daysInMonth = new Date(year, month, 0).getDate();
