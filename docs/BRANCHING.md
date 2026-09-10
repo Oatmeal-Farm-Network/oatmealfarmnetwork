@@ -23,6 +23,6 @@ Allowed PRs only:
 
 Cut work branches from **current staging**, not from `main`. Do not dump staging into `main` to skip testing.
 
-CI runs on PRs into all three bases. Testing and production deploys stay fail-closed until `TESTING_*` / `PROD_*` exist.
+CI runs on PRs into all three bases. Merge to `main` deploys `oatmealfarmnetwork` in Oatmeal AI. Testing stays fail-closed until `TESTING_*` exist. Prod WIF secrets (`PROD_GCP_WORKLOAD_IDENTITY_PROVIDER`, `PROD_GCP_SERVICE_ACCOUNT`) must be set on this repo.
 
 See [FRONTEND_STAGING_DEPLOY.md](./FRONTEND_STAGING_DEPLOY.md).
