@@ -1,0 +1,117 @@
+name: Deploy Frontend Production
+
+# main → oatmeal-frontend-prod
+# Fail closed until PROD_* secrets/vars exist. Do not fill them just to green this workflow.
+# Cloud Build (cloudbuild.yaml) remains a documented fallback until the first successful Actions prod deploy.
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'docs/**'
+      - 'README.md'
+      - '**/*.md'
+  workflow_dispatch:
+
+env:
+  GCP_PROJECT_ID: ${{ secrets.PROD_GCP_PROJECT_ID }}
+  REGION: ${{ vars.PROD_REGION || 'us-central1' }}
+  IMAGE_URI_PREFIX: ${{ vars.PROD_REGION || 'us-central1' }}-docker.pkg.dev/${{ secrets.PROD_GCP_PROJECT_ID }}/${{ vars.PROD_ARTIFACT_REGISTRY_REPOSITORY || 'cloud-run-source-deploy' }}/oatmealfarmnetwork-git
+  CLOUD_RUN_SERVICE: ${{ vars.PROD_FRONTEND_SERVICE_NAME || 'oatmeal-frontend-prod' }}
+  RUNTIME_SERVICE_ACCOUNT: ${{ vars.PROD_FRONTEND_RUNTIME_SA }}
+  VITE_API_URL: ${{ vars.PROD_BACKEND_URL }}
+  VITE_SAIGE_API_URL: ${{ vars.PROD_SAIGE_URL }}
+  VITE_CROP_API_URL: ${{ vars.PROD_CROP_API_URL }}
+  VITE_NEWS_API_URL: ${{ vars.PROD_NEWS_API_URL }}
+  VITE_CONTACT_RECIPIENT_EMAIL: ${{ vars.PROD_CONTACT_EMAIL }}
+  VITE_OTF_API_URL: ${{ vars.PROD_OTF_API_URL || '' }}
+
+jobs:
+  deploy-prod:
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Require production secrets and bake vars
+        shell: bash
+        run: |
+          missing=0
+          require() {
+            local name="$1" value="$2"
+            if [ -z "$value" ]; then
+              echo "::error::Missing required GitHub Actions secret/variable: $name"
+              missing=1
+            fi
+          }
+          require PROD_GCP_PROJECT_ID "${{ secrets.PROD_GCP_PROJECT_ID }}"
+          require PROD_GCP_WORKLOAD_IDENTITY_PROVIDER "${{ secrets.PROD_GCP_WORKLOAD_IDENTITY_PROVIDER }}"
+          require PROD_GCP_SERVICE_ACCOUNT "${{ secrets.PROD_GCP_SERVICE_ACCOUNT }}"
+          require PROD_FRONTEND_RUNTIME_SA "${{ vars.PROD_FRONTEND_RUNTIME_SA }}"
+          require PROD_BACKEND_URL "${{ vars.PROD_BACKEND_URL }}"
+          require PROD_SAIGE_URL "${{ vars.PROD_SAIGE_URL }}"
+          if [ "$missing" -ne 0 ]; then
+            echo "Production deploy blocked until all PROD_* secrets/vars are set."
+            echo "Do not fill PROD_* until GCP/frontend-testing has been used and Environment reviewers exist."
+            echo "See docs/FRONTEND_STAGING_DEPLOY.md. cloudbuild.yaml remains a manual fallback."
+            exit 1
+          fi
+
+      - name: Set short commit SHA
+        id: vars
+        run: echo "sha_short=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Authenticate to Google Cloud (Production)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.PROD_GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.PROD_GCP_SERVICE_ACCOUNT }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            --build-arg "VITE_API_URL=${{ env.VITE_API_URL }}" \
+            --build-arg "VITE_SAIGE_API_URL=${{ env.VITE_SAIGE_API_URL }}" \
+            --build-arg "VITE_CROP_API_URL=${{ env.VITE_CROP_API_URL }}" \
+            --build-arg "VITE_NEWS_API_URL=${{ env.VITE_NEWS_API_URL }}" \
+            --build-arg "VITE_CONTACT_RECIPIENT_EMAIL=${{ env.VITE_CONTACT_RECIPIENT_EMAIL }}" \
+            --build-arg "VITE_OTF_API_URL=${{ env.VITE_OTF_API_URL }}" \
+            -t "${{ env.IMAGE_URI_PREFIX }}:${{ steps.vars.outputs.sha_short }}" \
+            .
+
+      - name: Push Docker image
+        run: |
+          docker push "${{ env.IMAGE_URI_PREFIX }}:${{ steps.vars.outputs.sha_short }}"
+
+      - name: Deploy to Cloud Run (production)
+        run: |
+          gcloud run deploy ${{ env.CLOUD_RUN_SERVICE }} \
+            --image "${{ env.IMAGE_URI_PREFIX }}:${{ steps.vars.outputs.sha_short }}" \
+            --project ${{ env.GCP_PROJECT_ID }} \
+            --region ${{ env.REGION }} \
+            --platform managed \
+            --service-account "${{ env.RUNTIME_SERVICE_ACCOUNT }}" \
+            --allow-unauthenticated \
+            --port 8080 \
+            --memory 512Mi \
+            --cpu 1 \
+            --min-instances 0 \
+            --max-instances 10 \
+            --quiet
+
+      - name: Print deployed URL
+        run: |
+          gcloud run services describe ${{ env.CLOUD_RUN_SERVICE }} \
+            --project ${{ env.GCP_PROJECT_ID }} \
+            --region ${{ env.REGION }} \
+            --format="value(status.url)"
