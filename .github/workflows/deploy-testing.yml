@@ -5,7 +5,8 @@ name: Deploy Frontend Testing
 # Fails clearly until TESTING_* secrets/vars exist.
 on:
   push:
-    branches: [GCP/frontend-testing]
+    branches:
+      - 'GCP/frontend-testing'
     paths-ignore:
       - 'docs/**'
       - 'README.md'
