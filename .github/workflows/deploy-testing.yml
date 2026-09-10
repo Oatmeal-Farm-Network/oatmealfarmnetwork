@@ -55,9 +55,14 @@ jobs:
           require TESTING_FRONTEND_RUNTIME_SA "${{ vars.TESTING_FRONTEND_RUNTIME_SA }}"
           require TESTING_BACKEND_URL "${{ vars.TESTING_BACKEND_URL }}"
           require TESTING_SAIGE_URL "${{ vars.TESTING_SAIGE_URL }}"
+          project="${{ secrets.TESTING_GCP_PROJECT_ID }}"
+          if [ -n "$project" ] && [ "$project" != "oatmeal-farm-staging" ]; then
+            echo "::error::TESTING_GCP_PROJECT_ID must be oatmeal-farm-staging. Never animated-flare-421518 (Oatmeal AI)."
+            missing=1
+          fi
           if [ "$missing" -ne 0 ]; then
             echo "Testing deploy blocked until TESTING_* secrets/vars are set."
-            echo "Create Cloud Run oatmeal-frontend-testing and backend *-testing services first."
+            echo "Create Cloud Run oatmeal-frontend-testing in oatmeal-farm-staging first."
             echo "See docs/FRONTEND_STAGING_DEPLOY.md. Do not reuse PROD_* or mix staging API URLs."
             exit 1
           fi

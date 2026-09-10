@@ -16,7 +16,8 @@ steps:
       - 'push'
       - 'us-central1-docker.pkg.dev/animated-flare-421518/cloud-run-source-deploy/oatmealfarmnetwork-git'
 
-  # Deploy step removed — deploy manually via Cloud Run console or gcloud CLI
+  # Deploy step removed — deploy manually to Cloud Run service oatmealfarmnetwork
+  # in animated-flare-421518 (Oatmeal AI). Do not create oatmeal-frontend-prod.
 
 images:
   - 'us-central1-docker.pkg.dev/animated-flare-421518/cloud-run-source-deploy/oatmealfarmnetwork-git'

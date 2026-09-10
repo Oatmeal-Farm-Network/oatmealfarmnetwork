@@ -1,6 +1,7 @@
 name: Deploy Frontend Production
 
-# main → oatmeal-frontend-prod
+# main → oatmealfarmnetwork in animated-flare-421518 (Oatmeal AI) only.
+# Official OFN prod Cloud Run is oatmealfarmnetwork — not oatmeal-frontend-prod, not oatmeal-main.
 # Fail closed until PROD_* secrets/vars exist. Do not fill them just to green this workflow.
 # Cloud Build (cloudbuild.yaml) remains a documented fallback until the first successful Actions prod deploy.
 on:
@@ -15,8 +16,8 @@ on:
 env:
   GCP_PROJECT_ID: ${{ secrets.PROD_GCP_PROJECT_ID }}
   REGION: ${{ vars.PROD_REGION || 'us-central1' }}
-  IMAGE_URI_PREFIX: ${{ vars.PROD_REGION || 'us-central1' }}-docker.pkg.dev/${{ secrets.PROD_GCP_PROJECT_ID }}/${{ vars.PROD_ARTIFACT_REGISTRY_REPOSITORY || 'cloud-run-source-deploy' }}/oatmealfarmnetwork-git
-  CLOUD_RUN_SERVICE: ${{ vars.PROD_FRONTEND_SERVICE_NAME || 'oatmeal-frontend-prod' }}
+  IMAGE_URI_PREFIX: ${{ vars.PROD_REGION || 'us-central1' }}-docker.pkg.dev/${{ secrets.PROD_GCP_PROJECT_ID }}/${{ vars.PROD_ARTIFACT_REGISTRY_REPOSITORY || 'cloud-run-source-deploy' }}/oatmealfarmnetwork/oatmealfarmnetwork
+  CLOUD_RUN_SERVICE: ${{ vars.PROD_FRONTEND_SERVICE_NAME || 'oatmealfarmnetwork' }}
   RUNTIME_SERVICE_ACCOUNT: ${{ vars.PROD_FRONTEND_RUNTIME_SA }}
   VITE_API_URL: ${{ vars.PROD_BACKEND_URL }}
   VITE_SAIGE_API_URL: ${{ vars.PROD_SAIGE_URL }}
@@ -54,8 +55,19 @@ jobs:
           require PROD_FRONTEND_RUNTIME_SA "${{ vars.PROD_FRONTEND_RUNTIME_SA }}"
           require PROD_BACKEND_URL "${{ vars.PROD_BACKEND_URL }}"
           require PROD_SAIGE_URL "${{ vars.PROD_SAIGE_URL }}"
+          project="${{ secrets.PROD_GCP_PROJECT_ID }}"
+          service="${{ env.CLOUD_RUN_SERVICE }}"
+          if [ -n "$project" ] && [ "$project" != "animated-flare-421518" ]; then
+            echo "::error::PROD_GCP_PROJECT_ID must be animated-flare-421518 (Oatmeal AI). Never oatmeal-farm-staging."
+            missing=1
+          fi
+          if [ "$service" != "oatmealfarmnetwork" ]; then
+            echo "::error::OFN prod Cloud Run must be oatmealfarmnetwork (got: $service). Do not invent oatmeal-frontend-prod."
+            missing=1
+          fi
           if [ "$missing" -ne 0 ]; then
             echo "Production deploy blocked until all PROD_* secrets/vars are set."
+            echo "Official OFN prod service: oatmealfarmnetwork in animated-flare-421518."
             echo "Do not fill PROD_* until GCP/frontend-testing has been used and Environment reviewers exist."
             echo "See docs/FRONTEND_STAGING_DEPLOY.md. cloudbuild.yaml remains a manual fallback."
             exit 1

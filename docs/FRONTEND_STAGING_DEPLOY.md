@@ -1,11 +1,12 @@
 # Frontend Staging Deployment
 
 **Repo:** [Oatmeal-Farm-Network/oatmealfarmnetwork](https://github.com/Oatmeal-Farm-Network/oatmealfarmnetwork)  
-**GCP project:** `oatmeal-farm-staging`  
+**Staging/testing GCP project:** `oatmeal-farm-staging` (`1087130530284`)  
+**Production GCP project:** `animated-flare-421518` (Oatmeal AI, `802455386518`)  
 **Region:** `us-central1`  
 **Branches:** `GCP/frontend-staging` → `GCP/frontend-testing` → `main`  
 **Workflows:** `deploy-staging.yml`, `deploy-testing.yml`, `deploy-prod.yml`  
-**Last updated:** September 2026
+**Last updated:** 9 September 2026 evening
 
 ---
 
@@ -13,11 +14,13 @@ Git train: see [BRANCHING.md](./BRANCHING.md). Feature PRs target `GCP/frontend-
 
 ## What this deploys
 
-| Git branch | Cloud Run | Workflow | GitHub Environment |
-|------------|-----------|----------|--------------------|
-| `GCP/frontend-staging` | `oatmeal-frontend-staging` | `deploy-staging.yml` | `staging` |
-| `GCP/frontend-testing` | `oatmeal-frontend-testing` | `deploy-testing.yml` | `testing` |
-| `main` | `PROD_FRONTEND_SERVICE_NAME` or `oatmeal-frontend-prod` | `deploy-prod.yml` | `production` |
+| Git branch | Cloud Run | GCP project | Workflow | GitHub Environment |
+|------------|-----------|-------------|----------|--------------------|
+| `GCP/frontend-staging` | `oatmeal-frontend-staging` | `oatmeal-farm-staging` | `deploy-staging.yml` | `staging` |
+| `GCP/frontend-testing` | `oatmeal-frontend-testing` | `oatmeal-farm-staging` | `deploy-testing.yml` | `testing` |
+| `main` | **`oatmealfarmnetwork`** | `animated-flare-421518` | `deploy-prod.yml` | `production` |
+
+Official OFN production Cloud Run is **`oatmealfarmnetwork`**. There is no `oatmeal-frontend-prod`. Do not deploy this repo onto `oatmeal-main` or `oatmeal-social-frontend`.
 
 Staging image: `us-central1-docker.pkg.dev/oatmeal-farm-staging/oatmeal-farm-registry/frontend:<short-sha>`  
 Staging runtime SA: `frontend-sa@oatmeal-farm-staging.iam.gserviceaccount.com`
@@ -65,7 +68,7 @@ Do **not** rely on `.env.production` for staging — those URLs are production.
 
 Backend CORS must allow this frontend origin (done on `GCP/backend-staging`).
 
-**Platform hostnames:** Cloud Run hosts must be treated as OFN, not farm custom domains. `src/main.jsx` and `src/WebsitePublic.jsx` match `oatmeal-frontend-staging*`, `oatmeal-frontend-testing*`, and `oatmeal-frontend-prod*`. Otherwise the app shows “Site Not Found”.
+**Platform hostnames:** Cloud Run hosts must be treated as OFN, not farm custom domains. `src/main.jsx` and `src/WebsitePublic.jsx` match `oatmeal-frontend-staging*`, `oatmeal-frontend-testing*`, and `oatmealfarmnetwork-*` (the real prod Cloud Run host). Otherwise the app shows “Site Not Found”.
 
 ---
 
@@ -87,7 +90,7 @@ Create `oatmeal-frontend-testing` and backend `*-testing` services first. Same G
 
 | Name | Type | Notes |
 |------|------|--------|
-| `TESTING_GCP_PROJECT_ID` | secret | Testing or staging GCP project |
+| `TESTING_GCP_PROJECT_ID` | secret | **Must be** `oatmeal-farm-staging` |
 | `TESTING_GCP_SERVICE_ACCOUNT` | secret | Deployer SA |
 | `TESTING_GCP_WORKLOAD_IDENTITY_PROVIDER` | secret | WIF |
 | `TESTING_FRONTEND_RUNTIME_SA` | var | **Required** |
@@ -103,14 +106,15 @@ Backend CORS: allow the testing frontend origin before the first testing deploy.
 
 Fail-closed until these exist. Do not set them until testing has been used and Environment `production` has reviewers.
 
-| Name | Type |
-|------|------|
-| `PROD_GCP_PROJECT_ID` | secret |
-| `PROD_GCP_SERVICE_ACCOUNT` | secret |
-| `PROD_GCP_WORKLOAD_IDENTITY_PROVIDER` | secret |
-| `PROD_FRONTEND_RUNTIME_SA` | var |
-| `PROD_BACKEND_URL` | var |
-| `PROD_SAIGE_URL` | var |
+| Name | Type | Notes |
+|------|------|-------|
+| `PROD_GCP_PROJECT_ID` | secret | **Must be** `animated-flare-421518` |
+| `PROD_GCP_SERVICE_ACCOUNT` | secret | Prod WIF deployer |
+| `PROD_GCP_WORKLOAD_IDENTITY_PROVIDER` | secret | Prod WIF only |
+| `PROD_FRONTEND_RUNTIME_SA` | var | Required |
+| `PROD_BACKEND_URL` | var | Official backend: `oatmealfarmnewtorkbackend` |
+| `PROD_SAIGE_URL` | var | Required (bake only; Saige is not an official prod Cloud Run surface) |
+| `PROD_FRONTEND_SERVICE_NAME` | var | Optional; default **`oatmealfarmnetwork`**. Do not set `oatmeal-frontend-prod`. |
 
 ---
 
