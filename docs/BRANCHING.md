@@ -7,11 +7,13 @@ feature/*  →  PR  →  GCP/frontend-staging  →  PR  →  GCP/frontend-testin
                          staging Cloud Run              testing Cloud Run              production
 ```
 
-| Branch | Cloud Run | Workflow |
-|--------|-----------|----------|
-| `GCP/frontend-staging` | `oatmeal-frontend-staging` | `deploy-staging.yml` |
-| `GCP/frontend-testing` | `oatmeal-frontend-testing` | `deploy-testing.yml` |
-| `main` | production (`PROD_FRONTEND_SERVICE_NAME` or `oatmeal-frontend-prod`) | `deploy-prod.yml` |
+| Branch | Cloud Run | GCP project | Workflow |
+|--------|-----------|-------------|----------|
+| `GCP/frontend-staging` | `oatmeal-frontend-staging` | `oatmeal-farm-staging` | `deploy-staging.yml` |
+| `GCP/frontend-testing` | `oatmeal-frontend-testing` | `oatmeal-farm-staging` | `deploy-testing.yml` |
+| `main` | **`oatmealfarmnetwork`** | `animated-flare-421518` (Oatmeal AI) | `deploy-prod.yml` |
+
+Do **not** deploy OFN to `oatmeal-frontend-prod` (does not exist) or `oatmeal-main`. Official OFN prod is `oatmealfarmnetwork` only.
 
 Allowed PRs only:
 
