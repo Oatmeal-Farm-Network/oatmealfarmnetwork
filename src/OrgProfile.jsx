@@ -376,9 +376,38 @@ function blogExcerpt(content, wordLimit = 100) {
   return words.length <= wordLimit ? plain : words.slice(0, wordLimit).join(' ') + '…';
 }
 
+// Pull the first usable image out of a post so the card can show it when the
+// post has no explicit cover_image. Content is stored as JSON blocks whose text
+// blocks hold HTML (images live inside a <figure>…<img>); fall back to plain HTML.
+function firstImageFromContent(content) {
+  if (!content) return null;
+  const findImg = (html) => {
+    if (typeof html !== 'string') return null;
+    const m = html.match(/<img[^>]+src=["']([^"']+)["']/i);
+    return m ? m[1] : null;
+  };
+  try {
+    const blocks = JSON.parse(content);
+    if (Array.isArray(blocks)) {
+      for (const b of blocks) {
+        if (!b) continue;
+        if (b.type === 'image' || b.type === 'img') {
+          const src = b.url || b.src || b.image || (typeof b.content === 'string' ? b.content : null);
+          if (typeof src === 'string' && /^(https?:|\/|data:)/.test(src)) return src;
+        }
+        const inHtml = findImg(b.content) || findImg(b.html) || findImg(b.text);
+        if (inHtml) return inHtml;
+      }
+      return null;
+    }
+  } catch { /* not JSON — treat as HTML below */ }
+  return findImg(String(content));
+}
+
 function BlogPostCard({ post }) {
   const { t } = useTranslation();
   const catColor = BLOG_CATEGORY_COLORS[post.category] || '#6b7280';
+  const cardImage = post.cover_image || firstImageFromContent(post.content);
   const date = (post.published_at || post.created_at)
     ? new Date(post.published_at || post.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
     : '';
@@ -389,9 +418,9 @@ function BlogPostCard({ post }) {
       onMouseEnter={e => e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.08)'}
       onMouseLeave={e => e.currentTarget.style.boxShadow = 'none'}
     >
-      {post.cover_image && (
+      {cardImage && (
         <img
-          src={post.cover_image} alt={post.title}
+          src={cardImage} alt={post.title}
           style={{ width: 180, minWidth: 180, objectFit: 'cover', display: 'block', flexShrink: 0 }}
           onError={e => e.target.style.display = 'none'}
         />

@@ -187,9 +187,10 @@ function ThinkingDots({ stage }) {
 }
 
 // ─── CHAT BUBBLE ─────────────────────────────────────────────────────────────
-function ChatBubble({ message, voiceSupported, onSpeak, onDecideProposal, decidingProposalId }) {
+function ChatBubble({ message, voiceSupported, onSpeak, onDecideProposal, decidingProposalId, onFeedback }) {
   const { t } = useTranslation();
   const isUser = message.role === 'user';
+  const [voted, setVoted] = useState(null); // null | 'up' | 'down'
   const proposals = Array.isArray(message.proposals) ? message.proposals : [];
   const visualizations = !isUser && Array.isArray(message.visualizations)
     ? message.visualizations.slice(0, 3)
@@ -230,6 +231,7 @@ function ChatBubble({ message, voiceSupported, onSpeak, onDecideProposal, decidi
         ))}
         {!isUser && proposals.map((p, pi) => {
           if (!p || p._dismissed) return null;
+          if (String(p.tool || '').toLowerCase() === 'save_plan') return null;
           const pid = p.proposal_id || `local-${pi}`;
           return (
             <div
@@ -294,6 +296,30 @@ function ChatBubble({ message, voiceSupported, onSpeak, onDecideProposal, decidi
           >🔊</button>
         )}
       </div>
+      {!isUser && message.content && onFeedback && (
+        <div style={{ display: 'flex', gap: 4, marginTop: 4, justifyContent: 'flex-end' }}>
+          <button
+            type="button"
+            onClick={() => { if (voted) return; setVoted('up'); onFeedback(1); }}
+            title="Helpful"
+            style={{
+              background: 'none', border: 'none', cursor: voted ? 'default' : 'pointer',
+              fontSize: 13, lineHeight: 1, padding: '1px 3px', opacity: voted === 'down' ? 0.3 : 1,
+              color: voted === 'up' ? SAIGE_GREEN : '#9ca3af',
+            }}
+          >👍</button>
+          <button
+            type="button"
+            onClick={() => { if (voted) return; setVoted('down'); onFeedback(-1); }}
+            title="Not helpful"
+            style={{
+              background: 'none', border: 'none', cursor: voted ? 'default' : 'pointer',
+              fontSize: 13, lineHeight: 1, padding: '1px 3px', opacity: voted === 'up' ? 0.3 : 1,
+              color: voted === 'down' ? '#dc2626' : '#9ca3af',
+            }}
+          >👎</button>
+        </div>
+      )}
       {!isUser && mapViz.map((v) => (
         <div key={v.id || v.title} style={{ marginTop: 10, width: '100%' }}>
           <VizRenderer spec={v} />
@@ -1026,6 +1052,15 @@ export default function SaigePage() {
     }
   }
 
+  function sendFeedback(rating) {
+    if (!activeThreadId) return;
+    fetch(`${SAIGE_API}/chat/feedback`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ thread_id: activeThreadId, rating }),
+    }).catch(() => {});
+  }
+
   async function sendMessage(val, options = {}) {
     if (!activeThreadId || !val?.trim()) return;
     const showBubble = options.showUserBubble ?? true;
@@ -1106,8 +1141,8 @@ export default function SaigePage() {
         if (!content?.trim()) {
           content = payload.diagnosis || payload.response || t('saige_page.err_generic');
         }
-        if (payload.status === 'interrupted' && !/approval/i.test(content)) {
-          content = `${content}\n\nI've prepared change proposal(s) for your approval.`.trim();
+        if (payload.status === 'interrupted' && !/approval|reply yes|reply \*\*yes\*\*/i.test(content)) {
+          content = `${content}\n\nI've prepared change proposal(s) for your approval. Reply yes to approve or no to cancel.`.trim();
         }
         const proposals = Array.isArray(payload.proposals) ? payload.proposals : [];
         const visualizations = Array.isArray(payload.visualizations) ? payload.visualizations : [];
@@ -1265,6 +1300,7 @@ export default function SaigePage() {
                   onDecideProposal={msg.role === 'assistant'
                     ? (pi, decision) => decideProposal(i, pi, decision)
                     : undefined}
+                  onFeedback={msg.role === 'assistant' ? sendFeedback : undefined}
                 />
               ))}
               {isThinking && <ThinkingDots stage={processingStage} />}
