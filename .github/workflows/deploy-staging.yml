@@ -4,7 +4,7 @@ name: Deploy Frontend Staging
 # Triggers on pushes to GCP/frontend-staging.
 on:
   push:
-    branches: [GCP/frontend-staging]
+    branches: ['GCP/frontend-staging']
     paths-ignore:
       - 'docs/**'
       - 'README.md'
