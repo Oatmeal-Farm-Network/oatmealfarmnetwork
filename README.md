@@ -97,26 +97,30 @@ oatmealfarmnetwork/
 
 ## Deployment
 
+Promotion train (feature PRs go to staging only):
+
+```text
+feature/*  →  GCP/frontend-staging  →  GCP/frontend-testing  →  main
+```
+
+See [docs/BRANCHING.md](docs/BRANCHING.md) and [docs/FRONTEND_STAGING_DEPLOY.md](docs/FRONTEND_STAGING_DEPLOY.md).
+
 ### Staging (Cloud Run)
 
 Branch **`GCP/frontend-staging`** → GitHub Actions **Deploy Frontend Staging**.
 
 - Service: `oatmeal-frontend-staging` (`oatmeal-farm-staging`)
 - Build bakes staging `VITE_API_URL` → staging backend (not `.env.production`)
-- Runbook: [`docs/FRONTEND_STAGING_DEPLOY.md`](docs/FRONTEND_STAGING_DEPLOY.md)
 
 Requires GitHub secrets `STAGING_GCP_PROJECT_ID`, `STAGING_GCP_SERVICE_ACCOUNT`, `STAGING_GCP_WORKLOAD_IDENTITY_PROVIDER` on **this** repo, and WIF trust for `Oatmeal-Farm-Network/oatmealfarmnetwork`.
 
+### Testing (Cloud Run)
+
+Branch **`GCP/frontend-testing`** → **Deploy Frontend Testing** (`oatmeal-frontend-testing`). Fail-closed until `TESTING_*` vars point at testing APIs.
+
 ### Production
 
-Production builds use `.env.production`, which points `VITE_*` variables at Cloud Run services. Build and deploy:
-
-```powershell
-npm run build
-# dist/ is served by Cloud Run or a static host
-```
-
-Current production hosting is on Google Cloud Run — URLs are in `.env.production`. See also `cloudbuild.yaml`.
+Branch **`main`** → **Deploy Frontend Production** (fail-closed until `PROD_*`). `cloudbuild.yaml` remains a manual fallback until the first successful Actions prod deploy. `.env.production` is not used by Actions bake vars.
 
 ## Related Documentation
 

@@ -626,6 +626,8 @@ const isCustomDomain = !(
     h => window.location.hostname === h || window.location.hostname.endsWith(`.${h}`)
   )
   || window.location.hostname.startsWith('oatmeal-frontend-staging')
+  || window.location.hostname.startsWith('oatmeal-frontend-testing')
+  || window.location.hostname.startsWith('oatmeal-frontend-prod')
 );
 
 // Register the unified service worker (push + offline + bg-sync) on first paint.

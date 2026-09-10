@@ -2220,6 +2220,8 @@ const OFN_HOSTS = [
 const isCustomDomain = !(
   OFN_HOSTS.some(h => window.location.hostname === h || window.location.hostname.endsWith(`.${h}`))
   || window.location.hostname.startsWith('oatmeal-frontend-staging')
+  || window.location.hostname.startsWith('oatmeal-frontend-testing')
+  || window.location.hostname.startsWith('oatmeal-frontend-prod')
 );
 
 // Pick the header image whose month/day range covers today.

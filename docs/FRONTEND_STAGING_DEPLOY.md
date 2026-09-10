@@ -3,20 +3,26 @@
 **Repo:** [Oatmeal-Farm-Network/oatmealfarmnetwork](https://github.com/Oatmeal-Farm-Network/oatmealfarmnetwork)  
 **GCP project:** `oatmeal-farm-staging`  
 **Region:** `us-central1`  
-**Branch:** `GCP/frontend-staging`  
-**Workflow:** `.github/workflows/deploy-staging.yml`  
-**Last updated:** July 2026
+**Branches:** `GCP/frontend-staging` → `GCP/frontend-testing` → `main`  
+**Workflows:** `deploy-staging.yml`, `deploy-testing.yml`, `deploy-prod.yml`  
+**Last updated:** September 2026
 
 ---
 
+Git train: see [BRANCHING.md](./BRANCHING.md). Feature PRs target `GCP/frontend-staging` only.
+
 ## What this deploys
 
-| Item | Value |
-|------|--------|
-| Cloud Run service | `oatmeal-frontend-staging` |
-| Image | `us-central1-docker.pkg.dev/oatmeal-farm-staging/oatmeal-farm-registry/frontend:<short-sha>` |
-| Runtime SA | `frontend-sa@oatmeal-farm-staging.iam.gserviceaccount.com` |
-| API target | Staging backend (baked in at build via `VITE_API_URL`) |
+| Git branch | Cloud Run | Workflow | GitHub Environment |
+|------------|-----------|----------|--------------------|
+| `GCP/frontend-staging` | `oatmeal-frontend-staging` | `deploy-staging.yml` | `staging` |
+| `GCP/frontend-testing` | `oatmeal-frontend-testing` | `deploy-testing.yml` | `testing` |
+| `main` | `PROD_FRONTEND_SERVICE_NAME` or `oatmeal-frontend-prod` | `deploy-prod.yml` | `production` |
+
+Staging image: `us-central1-docker.pkg.dev/oatmeal-farm-staging/oatmeal-farm-registry/frontend:<short-sha>`  
+Staging runtime SA: `frontend-sa@oatmeal-farm-staging.iam.gserviceaccount.com`
+
+Testing and production stay **fail-closed** until `TESTING_*` / `PROD_*` are set. Do not copy production credentials into testing. Do not fill `PROD_*` just to green a workflow. `cloudbuild.yaml` remains a manual production fallback.
 
 ---
 
@@ -59,7 +65,7 @@ Do **not** rely on `.env.production` for staging — those URLs are production.
 
 Backend CORS must allow this frontend origin (done on `GCP/backend-staging`).
 
-**Platform hostnames:** staging Cloud Run hosts must be listed in `OFN_HOSTS` (`src/main.jsx`, `src/WebsitePublic.jsx`). Otherwise the app treats `*.run.app` as a farm custom domain and shows “Site Not Found”.
+**Platform hostnames:** Cloud Run hosts must be treated as OFN, not farm custom domains. `src/main.jsx` and `src/WebsitePublic.jsx` match `oatmeal-frontend-staging*`, `oatmeal-frontend-testing*`, and `oatmeal-frontend-prod*`. Otherwise the app shows “Site Not Found”.
 
 ---
 
@@ -75,13 +81,45 @@ Configure the same staging WIF secrets used by the backend repo:
 
 The deployer SA needs permission to push Artifact Registry images and deploy `oatmeal-frontend-staging` in the staging project. WIF must trust this GitHub repo (`oatmealfarmnetwork`).
 
+### Testing secrets / variables
+
+Create `oatmeal-frontend-testing` and backend `*-testing` services first. Same GCP project as staging is OK.
+
+| Name | Type | Notes |
+|------|------|--------|
+| `TESTING_GCP_PROJECT_ID` | secret | Testing or staging GCP project |
+| `TESTING_GCP_SERVICE_ACCOUNT` | secret | Deployer SA |
+| `TESTING_GCP_WORKLOAD_IDENTITY_PROVIDER` | secret | WIF |
+| `TESTING_FRONTEND_RUNTIME_SA` | var | **Required** |
+| `TESTING_BACKEND_URL` | var | **Required** — `oatmeal-backend-testing` |
+| `TESTING_SAIGE_URL` | var | **Required** — `oatmeal-saige-testing` |
+| `TESTING_CROP_API_URL` | var | Testing backend `/cm` |
+| `TESTING_NEWS_API_URL` | var | Optional |
+| `TESTING_CONTACT_EMAIL` | var | Optional |
+
+Backend CORS: allow the testing frontend origin before the first testing deploy.
+
+### Production secrets / variables
+
+Fail-closed until these exist. Do not set them until testing has been used and Environment `production` has reviewers.
+
+| Name | Type |
+|------|------|
+| `PROD_GCP_PROJECT_ID` | secret |
+| `PROD_GCP_SERVICE_ACCOUNT` | secret |
+| `PROD_GCP_WORKLOAD_IDENTITY_PROVIDER` | secret |
+| `PROD_FRONTEND_RUNTIME_SA` | var |
+| `PROD_BACKEND_URL` | var |
+| `PROD_SAIGE_URL` | var |
+
 ---
 
 ## Operator process
 
-1. Merge frontend work into **`GCP/frontend-staging`** (not `main` for staging deploys).
-2. Wait for **Deploy Frontend Staging** in Actions.
-3. Confirm:
+1. Cut features from `GCP/frontend-staging`. PR into staging only.
+2. Staging merge deploys `oatmeal-frontend-staging`.
+3. Promote staging → `GCP/frontend-testing` by PR after staging looks right.
+4. After QA sign-off, PR testing → `main`. Production Actions stay blocked until `PROD_*` exist; `cloudbuild.yaml` is the fallback.
 
 ```bash
 gcloud run services describe oatmeal-frontend-staging \
@@ -89,7 +127,7 @@ gcloud run services describe oatmeal-frontend-staging \
   --format='yaml(status.url,spec.template.spec.containers[0].image)'
 ```
 
-4. In the browser, verify Network calls go to the **staging** backend host (not prod).
+In the browser, verify Network calls go to the **matching** backend host for that hop (not a different environment).
 
 ---
 
