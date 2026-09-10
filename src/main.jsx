@@ -613,7 +613,7 @@ const isCustomDomain = !(
   )
   || window.location.hostname.startsWith('oatmeal-frontend-staging')
   || window.location.hostname.startsWith('oatmeal-frontend-testing')
-  || window.location.hostname.startsWith('oatmeal-frontend-prod')
+  || window.location.hostname.startsWith('oatmealfarmnetwork-')
 );
 
 // Register the unified service worker (push + offline + bg-sync) on first paint.
