@@ -92,7 +92,7 @@ function Bubble({
   }
 
   const pending = Array.isArray(proposals)
-    ? proposals.filter((p) => p && !p._dismissed && !p._executed)
+    ? proposals.filter((p) => p && !p._dismissed && !p._executed && String(p.tool || '').toLowerCase() !== 'save_plan')
     : [];
 
   return (
@@ -128,6 +128,7 @@ function Bubble({
           ))}
           {!isUser && Array.isArray(proposals) && proposals.map((p, pi) => {
             if (!p || p._dismissed) return null;
+            if (String(p.tool || '').toLowerCase() === 'save_plan') return null;
             const pid = p.proposal_id || `local-${pi}`;
             return (
               <div
@@ -691,8 +692,8 @@ function ChatPanel({ businessId, fieldId, pageContext, language, onClose, onFull
                 ? extractMapCmd(evt.diagnosis.replace(/\*\*/g, '').replace(/\*/g, '').trim())
                 : '';
               let finalReply = cleaned || diagText || 'No response received.';
-              if (evt.status === 'interrupted' && !/approval/i.test(finalReply)) {
-                finalReply = `${finalReply}\n\nI've prepared change proposal(s) for your approval.`.trim();
+              if (evt.status === 'interrupted' && !/approval|reply yes|reply \*\*yes\*\*/i.test(finalReply)) {
+                finalReply = `${finalReply}\n\nI've prepared change proposal(s) for your approval. Reply yes to approve or no to cancel.`.trim();
               }
               const proposals = Array.isArray(evt.proposals) ? evt.proposals : [];
               const visualizations = Array.isArray(evt.visualizations) ? evt.visualizations : [];

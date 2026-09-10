@@ -14,62 +14,10 @@ const fmtDate = (s) => {
   }
 };
 
-function AnalysisCard({ title, data, thumb, loading, onRun, runLabel, uploadSlot }) {
-  const { t } = useTranslation();
-  return (
-    <div className="flex-1 min-w-0 bg-white border border-gray-200 rounded-lg p-3">
-      <div className="flex items-center justify-between mb-2">
-        <div className="text-xs font-semibold text-gray-700 uppercase tracking-wide">{title}</div>
-        {onRun && (
-          <button
-            onClick={onRun}
-            disabled={loading}
-            className="text-xs px-2.5 py-1 rounded-md bg-indigo-600 text-white hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed font-medium"
-          >
-            {loading ? t('biomass_panel.analyzing') : runLabel}
-          </button>
-        )}
-      </div>
-
-      {data ? (
-        <>
-          {thumb && (
-            <img
-              src={thumb}
-              alt={title}
-              className="w-full aspect-video object-cover rounded mb-2 border border-gray-100"
-              onError={(e) => { e.currentTarget.style.display = 'none'; }}
-            />
-          )}
-          <div className="text-2xl font-bold text-gray-900 leading-tight">
-            {fmt(data.biomass_kg_per_ha)}
-            <span className="text-sm font-normal text-gray-500 ml-1">kg DM/ha</span>
-          </div>
-          <div className="mt-1 text-xs text-gray-500">
-            {t('biomass_panel.confidence', { pct: fmtPct(data.confidence), date: fmtDate(data.captured_at) })}
-          </div>
-          {data.model_version && (
-            <div className="text-[10px] text-gray-400 mt-0.5">{t('biomass_panel.model_version', { version: data.model_version })}</div>
-          )}
-        </>
-      ) : (
-        <div className="text-xs text-gray-400 italic py-3">
-          {loading ? t('biomass_panel.analyzing') : t('biomass_panel.no_data')}
-        </div>
-      )}
-
-      {uploadSlot}
-    </div>
-  );
-}
-
 export default function BiomassPanel({ fieldId, onClose }) {
   const { t } = useTranslation();
-  const [state, setState] = useState({ satellite: null, upload: null, history: [] });
-  const [loadingSat, setLoadingSat] = useState(false);
+  const [upload, setUpload] = useState(null);
   const [loadingUpload, setLoadingUpload] = useState(false);
-  const [loadingResolve, setLoadingResolve] = useState(false);
-  const [resolved, setResolved] = useState(null);
   const [error, setError] = useState('');
   const fileInputRef = useRef(null);
 
@@ -78,11 +26,7 @@ export default function BiomassPanel({ fieldId, onClose }) {
       const r = await fetch(`${API_URL}/api/fields/${fieldId}/biomass`);
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const data = await r.json();
-      setState({
-        satellite: data.satellite || null,
-        upload: data.upload || null,
-        history: data.history || [],
-      });
+      setUpload(data.upload || null);
     } catch (e) {
       console.warn('[BiomassPanel] refresh failed:', e);
     }
@@ -91,23 +35,6 @@ export default function BiomassPanel({ fieldId, onClose }) {
   useEffect(() => {
     refresh();
   }, [refresh]);
-
-  const runSatellite = async () => {
-    setError('');
-    setLoadingSat(true);
-    try {
-      const r = await fetch(`${API_URL}/api/fields/${fieldId}/biomass/satellite`, { method: 'POST' });
-      if (!r.ok) {
-        const txt = await r.text();
-        throw new Error(txt || `HTTP ${r.status}`);
-      }
-      await refresh();
-    } catch (e) {
-      setError(t('biomass_panel.error_satellite', { message: e.message || e }));
-    } finally {
-      setLoadingSat(false);
-    }
-  };
 
   const runUpload = async (file) => {
     if (!file) return;
@@ -122,7 +49,14 @@ export default function BiomassPanel({ fieldId, onClose }) {
       });
       if (!r.ok) {
         const txt = await r.text();
-        throw new Error(txt || `HTTP ${r.status}`);
+        let message = txt || `HTTP ${r.status}`;
+        try {
+          const j = JSON.parse(txt);
+          if (j?.detail) message = typeof j.detail === 'string' ? j.detail : JSON.stringify(j.detail);
+        } catch {
+          /* keep raw text */
+        }
+        throw new Error(message);
       }
       await refresh();
     } catch (e) {
@@ -133,27 +67,7 @@ export default function BiomassPanel({ fieldId, onClose }) {
     }
   };
 
-  const resolveConfidence = async () => {
-    setError('');
-    setLoadingResolve(true);
-    try {
-      const r = await fetch(`${API_URL}/api/fields/${fieldId}/biomass/resolve`, { method: 'POST' });
-      if (!r.ok) {
-        const txt = await r.text();
-        throw new Error(txt || `HTTP ${r.status}`);
-      }
-      const data = await r.json();
-      setResolved(data);
-      await refresh();
-    } catch (e) {
-      setError(t('biomass_panel.error_confidence', { message: e.message || e }));
-    } finally {
-      setLoadingResolve(false);
-    }
-  };
-
-  const bothExist = state.satellite && state.upload;
-  const lowConfidence = state.satellite && state.satellite.confidence != null && state.satellite.confidence < 0.4;
+  const components = upload?.features?.components;
 
   return (
     <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 mt-3">
@@ -175,88 +89,82 @@ export default function BiomassPanel({ fieldId, onClose }) {
         </div>
       )}
 
-      <div className="flex flex-col sm:flex-row gap-3">
-        <AnalysisCard
-          title={t('biomass_panel.card_satellite')}
-          data={state.satellite}
-          thumb={state.satellite?.image_url}
-          loading={loadingSat}
-          onRun={runSatellite}
-          runLabel={state.satellite ? t('biomass_panel.run_rerun') : t('biomass_panel.run_analyze')}
-        />
-        <AnalysisCard
-          title={t('biomass_panel.card_photo')}
-          data={state.upload}
-          thumb={state.upload?.image_url}
-          loading={loadingUpload}
-          uploadSlot={
-            <div className="mt-2">
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={(e) => runUpload(e.target.files?.[0])}
-                className="hidden"
-                id={`biomass-upload-${fieldId}`}
+      <div className="bg-white border border-gray-200 rounded-lg p-3">
+        <div className="text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">
+          {t('biomass_panel.card_photo')}
+        </div>
+
+        {upload ? (
+          <>
+            {upload.image_url && (
+              <img
+                src={upload.image_url}
+                alt={t('biomass_panel.card_photo')}
+                className="w-full aspect-video object-cover rounded mb-2 border border-gray-100"
+                onError={(e) => { e.currentTarget.style.display = 'none'; }}
               />
-              <label
-                htmlFor={`biomass-upload-${fieldId}`}
-                className={`block w-full text-center text-xs px-2.5 py-1.5 rounded-md font-medium cursor-pointer ${
-                  loadingUpload
-                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    : 'bg-indigo-600 text-white hover:bg-indigo-700'
-                }`}
-              >
-                {loadingUpload ? t('biomass_panel.analyzing') : (state.upload ? t('biomass_panel.upload_another') : t('biomass_panel.upload_photo'))}
-              </label>
+            )}
+            <div className="text-2xl font-bold text-gray-900 leading-tight">
+              {fmt(upload.biomass_kg_per_ha)}
+              <span className="text-sm font-normal text-gray-500 ml-1">kg DM/ha</span>
             </div>
-          }
-        />
+            <div className="mt-1 text-xs text-gray-500">
+              {t('biomass_panel.confidence', { pct: fmtPct(upload.confidence), date: fmtDate(upload.captured_at) })}
+            </div>
+            {upload.model_version && (
+              <div className="text-[10px] text-gray-400 mt-0.5">
+                {t('biomass_panel.model_version', { version: upload.model_version })}
+              </div>
+            )}
+            {components && (
+              <div className="mt-2 flex flex-wrap gap-1">
+                {[
+                  { key: 'Dry_Green_g', label: t('biomass_panel.comp_green') },
+                  { key: 'Dry_Dead_g', label: t('biomass_panel.comp_dead') },
+                  { key: 'Dry_Clover_g', label: t('biomass_panel.comp_clover') },
+                  { key: 'GDM_g', label: t('biomass_panel.comp_gdm') },
+                ].map(({ key, label }) => (
+                  <span
+                    key={key}
+                    className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-700 border border-gray-200"
+                    title={`${key}: ${components[key]} g`}
+                  >
+                    <span className="font-medium text-gray-500">{label}</span>
+                    <span className="tabular-nums">{Number(components[key] ?? 0).toFixed(1)}g</span>
+                  </span>
+                ))}
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="text-xs text-gray-400 italic py-3">
+            {loadingUpload ? t('biomass_panel.analyzing') : t('biomass_panel.no_data')}
+          </div>
+        )}
+
+        <div className="mt-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={(e) => runUpload(e.target.files?.[0])}
+            className="hidden"
+            id={`biomass-upload-${fieldId}`}
+          />
+          <label
+            htmlFor={`biomass-upload-${fieldId}`}
+            className={`block w-full text-center text-xs px-2.5 py-1.5 rounded-md font-medium cursor-pointer ${
+              loadingUpload
+                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                : 'bg-indigo-600 text-white hover:bg-indigo-700'
+            }`}
+          >
+            {loadingUpload
+              ? t('biomass_panel.analyzing')
+              : (upload ? t('biomass_panel.upload_another') : t('biomass_panel.upload_photo'))}
+          </label>
+        </div>
       </div>
-
-      {bothExist && (
-        <div className="mt-3 text-xs text-gray-600 bg-white border border-gray-200 rounded px-2.5 py-2">
-          <span className="font-semibold">{t('biomass_panel.combined_label')}</span>{' '}
-          {t('biomass_panel.combined_avg', { value: fmt((state.satellite.biomass_kg_per_ha + state.upload.biomass_kg_per_ha) / 2) })}
-          {' · '}
-          {t('biomass_panel.combined_delta', { value: fmt(Math.abs(state.satellite.biomass_kg_per_ha - state.upload.biomass_kg_per_ha)) })}
-        </div>
-      )}
-
-      {lowConfidence && (
-        <div className="mt-3 text-xs bg-amber-50 border border-amber-200 text-amber-900 rounded px-2.5 py-2">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <div className="font-semibold mb-1 flex items-center gap-1">
-                <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M8 2L1 14h14z"/><line x1="8" y1="7" x2="8" y2="10"/><circle cx="8" cy="12.5" r="0.6" fill="currentColor" stroke="none"/></svg>
-                {t('biomass_panel.low_confidence_title', { pct: fmtPct(state.satellite.confidence) })}
-              </div>
-              <div className="leading-relaxed">
-                {t('biomass_panel.low_confidence_body')}
-              </div>
-            </div>
-            <button
-              onClick={resolveConfidence}
-              disabled={loadingResolve}
-              className="shrink-0 text-xs px-2.5 py-1.5 rounded-md bg-amber-600 text-white hover:bg-amber-700 disabled:bg-gray-300 disabled:cursor-not-allowed font-medium"
-            >
-              {loadingResolve ? t('biomass_panel.working') : t('biomass_panel.improve_confidence')}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {resolved && (
-        <div className="mt-3 text-xs bg-emerald-50 border border-emerald-200 text-emerald-900 rounded px-2.5 py-2">
-          <div className="font-semibold mb-1 flex items-center gap-1">
-            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="3,8 6,11 13,4"/></svg>
-            {t('biomass_panel.resolved_title', { n: resolved.n_samples })}
-          </div>
-          <div>
-            {t('biomass_panel.resolved_body', { value: fmt(resolved.averaged_biomass_kg_per_ha), pct: fmtPct(resolved.averaged_confidence) })}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
