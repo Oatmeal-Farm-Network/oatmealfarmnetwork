@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 
 export const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
-// CropMonitor: in dev it's mounted at /cm under server_all.py; in prod it's the
-// standalone Cloud Run service. VITE_CROP_API_URL overrides both.
-export const CROP_API_URL = import.meta.env.VITE_CROP_API_URL
-  || (window.location.hostname === 'localhost' ? `${API_URL}/cm` : `${API_URL}/cm`);
+// CropMonitor: VITE_CROP_API_URL points at the standalone service. Default is
+// the OFN backend crop-monitor proxy (`/api/fields/{id}/raster/...`). Do not
+// use `${API_URL}/cm` on Cloud Run — that path 404s and blanks Saige rasters.
+export const CROP_API_URL = import.meta.env.VITE_CROP_API_URL || API_URL;
 
 export async function safeFetch(url) {
   try {
@@ -34,8 +34,7 @@ export function useRaster(fieldId, indexKey, grid = 48, analysisId = null) {
     if (!fieldId || !indexKey) { setData(null); return; }
     const ctrl = new AbortController();
     setLoading(true); setError(null);
-    // Raster lives only on CropMonitor — main backend has no raster route, so
-    // the previous ${API_URL} call returned a bare 404 for every analysis.
+    // Raster is proxied by the OFN backend at /api/fields/{id}/raster/{index}.
     const url = `${CROP_API_URL}/api/fields/${fieldId}/raster/${indexKey}?grid=${grid}${analysisId ? `&analysis_id=${analysisId}` : ''}`;
     fetch(url, { signal: ctrl.signal })
       .then(r => r.ok ? r.json() : r.json().then(j => Promise.reject(j?.detail || `${r.status}`)))

@@ -277,11 +277,19 @@ export default function LivestockSpecies() {
                         loading={index < EAGER_COUNT ? 'eager' : 'lazy'}
                         decoding={index < EAGER_COUNT ? 'sync' : 'async'}
                         className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
-                        onError={e => { e.target.parentElement.classList.add('hidden'); }}
+                        onError={e => {
+                          e.target.style.display = 'none';
+                          const fallback = e.target.nextSibling;
+                          if (fallback) fallback.style.display = 'block';
+                        }}
                       />
-                    ) : (
-                      <span className="text-gray-300 text-xs text-center px-3">{t('livestock_species.no_image')}</span>
-                    )}
+                    ) : null}
+                    <span
+                      className="text-gray-300 text-xs text-center px-3"
+                      style={{ display: imgSrc ? 'none' : 'block' }}
+                    >
+                      {t('livestock_species.no_image')}
+                    </span>
                   </Link>
 
                   <div className="flex flex-col justify-between px-5 py-4 flex-1 min-w-0">

@@ -16,6 +16,8 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAccount } from './AccountContext';
 import { useLanguage } from './LanguageContext';
+import VizRenderer from './saige-viz/VizRenderer';
+import VizSkeleton from './saige-viz/VizSkeleton';
 
 function normalizeSaigeApiBase(rawValue) {
   // Base URL already includes the /saige prefix (unified local backend mounts
@@ -69,15 +71,29 @@ function Bubble({
   onSpeak,
   threadId,
   onFeedback,
+  proposals,
+  visualizations,
+  onDecideProposal,
+  decidingProposalId,
 }) {
   const isUser = role === 'user';
   const [voted, setVoted] = React.useState(null); // null | 'up' | 'down'
+  const vizSpecs = !isUser && Array.isArray(visualizations)
+    ? visualizations.slice(0, 2)
+    : [];
+  const mapViz = vizSpecs.filter((v) => v && (v.type === 'farm_map' || v.type === 'field_map' || v.type === 'heatmap'));
+  const cardViz = vizSpecs.filter((v) => v && v.type !== 'farm_map' && v.type !== 'field_map' && v.type !== 'heatmap');
+  const hasViz = vizSpecs.length > 0;
 
   function handleFeedback(rating) {
     if (voted) return;
     setVoted(rating > 0 ? 'up' : 'down');
     onFeedback && onFeedback(rating);
   }
+
+  const pending = Array.isArray(proposals)
+    ? proposals.filter((p) => p && !p._dismissed && !p._executed && String(p.tool || '').toLowerCase() !== 'save_plan')
+    : [];
 
   return (
     <div style={{ display: 'flex', justifyContent: isUser ? 'flex-end' : 'flex-start', marginBottom: 8 }}>
@@ -90,7 +106,7 @@ function Bubble({
           <img src="/images/SaigeAIIcon.webp" alt="" style={{ width: 26, height: 26, objectFit: 'cover' }} />
         </div>
       )}
-      <div style={{ position: 'relative', maxWidth: '82%' }}>
+      <div style={{ position: 'relative', maxWidth: hasViz ? '90%' : '82%' }}>
         <div style={{
           padding: '8px 12px',
           paddingRight: !isUser && ttsSupported ? '28px' : '12px',
@@ -105,6 +121,63 @@ function Bubble({
           border: isUser ? 'none' : `1px solid ${SAIGE_BORDER}`,
         }}>
           {content}
+          {!isUser && cardViz.map((v) => (
+            <div key={v.id || v.title} style={{ marginTop: 8 }}>
+              <VizRenderer spec={v} />
+            </div>
+          ))}
+          {!isUser && Array.isArray(proposals) && proposals.map((p, pi) => {
+            if (!p || p._dismissed) return null;
+            if (String(p.tool || '').toLowerCase() === 'save_plan') return null;
+            const pid = p.proposal_id || `local-${pi}`;
+            return (
+              <div
+                key={pid}
+                style={{
+                  marginTop: 8,
+                  padding: 8,
+                  borderRadius: 8,
+                  border: `1px solid ${SAIGE_BORDER}`,
+                  background: '#fff',
+                }}
+              >
+                <div style={{ fontSize: 11, fontWeight: 700, color: SAIGE_DARK, marginBottom: 4 }}>
+                  {p._executed ? 'Done' : 'Approve this change?'}
+                </div>
+                <div style={{ fontSize: 12, color: '#374151', marginBottom: 6 }}>
+                  {p.summary || `${p.tool || 'action'} proposed`}
+                </div>
+                {!p._executed && (
+                  <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                    <button
+                      type="button"
+                      disabled={decidingProposalId === pid}
+                      onClick={() => onDecideProposal && onDecideProposal(pi, 'reject')}
+                      style={{
+                        fontSize: 11, padding: '4px 8px', borderRadius: 6,
+                        border: '1px solid #fecaca', background: '#fff', color: '#b91c1c',
+                        cursor: 'pointer', fontWeight: 600,
+                      }}
+                    >
+                      Reject
+                    </button>
+                    <button
+                      type="button"
+                      disabled={decidingProposalId === pid}
+                      onClick={() => onDecideProposal && onDecideProposal(pi, 'approve')}
+                      style={{
+                        fontSize: 11, padding: '4px 8px', borderRadius: 6,
+                        border: 'none', background: SAIGE_GREEN, color: '#fff',
+                        cursor: 'pointer', fontWeight: 600,
+                      }}
+                    >
+                      Approve
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
         {!isUser && content && ttsSupported && (
           <button
@@ -145,6 +218,11 @@ function Bubble({
             Pending action{pending.length > 1 ? 's' : ''} need your approval
           </div>
         )}
+        {!isUser && mapViz.map((v) => (
+          <div key={v.id || v.title} style={{ marginTop: 8, width: '100%' }}>
+            <VizRenderer spec={v} />
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -244,6 +322,7 @@ function ChatPanel({ businessId, fieldId, pageContext, language, onClose, onFull
   const [speaking,  setSpeaking]  = useState(false);
   const [recording, setRecording] = useState(false);
   const [voiceErr,  setVoiceErr]  = useState(null);
+  const [decidingProposalId, setDecidingProposalId] = useState(null);
 
   const recRef        = useRef(null);
   const isRecRef      = useRef(false);
@@ -480,6 +559,70 @@ function ChatPanel({ businessId, fieldId, pageContext, language, onClose, onFull
     if (el) el.scrollTop = el.scrollHeight;
   }, [messages, sending]);
 
+  const decideProposal = useCallback(async (msgIdx, proposalIdx, decision) => {
+    const msg = messages[msgIdx];
+    const proposal = msg?.proposals?.[proposalIdx];
+    if (!proposal || proposal._executed || proposal._dismissed) return;
+    const pid = proposal.proposal_id;
+    if (decision === 'reject' && !pid) {
+      setMessages((prev) => prev.map((m, i) => (i !== msgIdx ? m : {
+        ...m,
+        proposals: (m.proposals || []).map((pp, j) => (j === proposalIdx ? { ...pp, _dismissed: true } : pp)),
+      })));
+      return;
+    }
+    if (!pid) {
+      setError('This proposal is missing an id — refresh and try again.');
+      return;
+    }
+    if (decision === 'approve' && !window.confirm('Approve this Saige change?')) return;
+    setDecidingProposalId(pid);
+    setError('');
+    try {
+      const thread = proposal.thread_id || threadId;
+      let ok = false;
+      const r = await fetch(`${SAIGE_API}/proposals/${pid}/decide`, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ decision, thread_id: thread, edits: {} }),
+      });
+      if (r.ok) {
+        ok = true;
+      } else {
+        const r2 = await fetch(`${SAIGE_API}/resume`, {
+          method: 'POST',
+          headers: authHeaders(),
+          body: JSON.stringify({ thread_id: thread, decision, proposal_id: pid }),
+        });
+        ok = r2.ok;
+        if (!ok) {
+          const j = await r2.json().catch(() => ({}));
+          throw new Error(j?.message || j?.detail || `HTTP ${r2.status}`);
+        }
+      }
+      if (ok) {
+        setMessages((prev) => {
+          const next = prev.map((m, i) => (i !== msgIdx ? m : {
+            ...m,
+            proposals: (m.proposals || []).map((pp, j) => (
+              j === proposalIdx
+                ? { ...pp, _executed: decision === 'approve', _dismissed: decision === 'reject' }
+                : pp
+            )),
+          }));
+          const doneText = decision === 'approve'
+            ? `Done — ${proposal.summary || 'change applied'}.`
+            : 'Okay, I cancelled that change.';
+          return [...next, { role: 'assistant', content: doneText }];
+        });
+      }
+    } catch (e) {
+      setError(e.message || `Could not ${decision}`);
+    } finally {
+      setDecidingProposalId(null);
+    }
+  }, [messages, setMessages, threadId]);
+
   const send = useCallback(async (text) => {
     const val = (text || input).trim();
     if (!val || sending) return;
@@ -549,14 +692,18 @@ function ChatPanel({ businessId, fieldId, pageContext, language, onClose, onFull
                 ? extractMapCmd(evt.diagnosis.replace(/\*\*/g, '').replace(/\*/g, '').trim())
                 : '';
               let finalReply = cleaned || diagText || 'No response received.';
-              if (evt.status === 'interrupted' && !/reply\s+\*\*yes\*\*|reply yes|approve or \*\*no\*\*/i.test(finalReply)) {
-                finalReply = `${finalReply}\n\nReply yes to approve or no to cancel.`.trim();
+              if (evt.status === 'interrupted' && !/approval|reply yes|reply \*\*yes\*\*/i.test(finalReply)) {
+                finalReply = `${finalReply}\n\nI've prepared change proposal(s) for your approval. Reply yes to approve or no to cancel.`.trim();
               }
+              const proposals = Array.isArray(evt.proposals) ? evt.proposals : [];
+              const visualizations = Array.isArray(evt.visualizations) ? evt.visualizations : [];
               setMessages(prev => {
                 const upd = [...prev];
                 upd[upd.length - 1] = {
                   role: 'assistant',
                   content: finalReply,
+                  ...(proposals.length ? { proposals } : {}),
+                  ...(visualizations.length ? { visualizations } : {}),
                 };
                 return upd;
               });
@@ -608,9 +755,13 @@ function ChatPanel({ businessId, fieldId, pageContext, language, onClose, onFull
         }
         reply = extractMapCmd(reply);
         const finalReply = reply || 'No response received.';
+        const proposals = Array.isArray(data.proposals) ? data.proposals : [];
+        const visualizations = Array.isArray(data.visualizations) ? data.visualizations : [];
         setMessages([...nextMsgs, {
           role: 'assistant',
           content: finalReply,
+          ...(proposals.length ? { proposals } : {}),
+          ...(visualizations.length ? { visualizations } : {}),
         }]);
         if (autoSpeak) playTTS(finalReply);
       } catch (e) {
@@ -716,11 +867,22 @@ function ChatPanel({ businessId, fieldId, pageContext, language, onClose, onFull
             ttsSupported={ttsSupported}
             onSpeak={playTTS}
             onFeedback={m.role === 'assistant' ? sendFeedback : undefined}
+            proposals={m.proposals}
+            visualizations={m.visualizations}
+            decidingProposalId={decidingProposalId}
+            onDecideProposal={m.role === 'assistant'
+              ? (pi, decision) => decideProposal(i, pi, decision)
+              : undefined}
           />
         ))}
         {sending && (
-          <div style={{ fontSize: 12, color: '#6b7280', fontStyle: 'italic', fontFamily: FONT_BODY, padding: '4px 0' }}>
-            Saige is thinking…
+          <div style={{ padding: '4px 0' }}>
+            <div style={{ fontSize: 12, color: '#6b7280', fontStyle: 'italic', fontFamily: FONT_BODY }}>
+              Saige is thinking…
+            </div>
+            <div style={{ marginTop: 8 }}>
+              <VizSkeleton />
+            </div>
           </div>
         )}
         {error && <div style={{ fontSize: 11, color: '#991b1b', marginTop: 4 }}>{error}</div>}

@@ -8,8 +8,12 @@ import PageMeta from './PageMeta';
 import { useAccount } from './AccountContext';
 import SaigeFieldsCard from './SaigeFieldsCard';
 import SaigeDraftsPanel from './SaigeDraftsPanel';
+import SaigeProposalsPanel from './SaigeProposalsPanel';
 import MarketIntelligenceWidget from './MarketIntelligenceWidget';
 import FieldHealthWidget from './FieldHealthWidget';
+import VizPlayground from './saige-viz/VizPlayground';
+import VizRenderer from './saige-viz/VizRenderer';
+import VizSkeleton from './saige-viz/VizSkeleton';
 
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 function normalizeSaigeApiBase(rawValue) {
@@ -158,37 +162,42 @@ function ThinkingDots({ stage }) {
     return () => clearInterval(iv);
   }, [stage, msgs.length]);
   return (
-    <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: 12 }}>
-      <div style={{
-        maxWidth: '80%', borderRadius: 12, padding: '12px 16px',
-        background: SAIGE_LIGHT,
-        border: `1px solid ${SAIGE_BORDER}`, color: SAIGE_TEXT,
-        display: 'flex', alignItems: 'center', gap: 10,
-        fontFamily: SAIGE_FONT_BODY,
-      }}>
-        <svg style={{ width: 18, height: 18, flexShrink: 0, animation: 'saige-spin 1s linear infinite' }}
-          fill="none" viewBox="0 0 24 24" stroke={SAIGE_GREEN} strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round"
-            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-        </svg>
-        <span style={{ fontSize: 13, color: SAIGE_GREEN_DARK, fontStyle: 'italic' }}>{msgs[msgIdx]}</span>
+    <div style={{ marginBottom: 12 }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+        <div style={{
+          maxWidth: '80%', borderRadius: 12, padding: '12px 16px',
+          background: SAIGE_LIGHT,
+          border: `1px solid ${SAIGE_BORDER}`, color: SAIGE_TEXT,
+          display: 'flex', alignItems: 'center', gap: 10,
+          fontFamily: SAIGE_FONT_BODY,
+        }}>
+          <svg style={{ width: 18, height: 18, flexShrink: 0, animation: 'saige-spin 1s linear infinite' }}
+            fill="none" viewBox="0 0 24 24" stroke={SAIGE_GREEN} strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round"
+              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+          </svg>
+          <span style={{ fontSize: 13, color: SAIGE_GREEN_DARK, fontStyle: 'italic' }}>{msgs[msgIdx]}</span>
+        </div>
+      </div>
+      <div style={{ maxWidth: '90%', marginTop: 10 }}>
+        <VizSkeleton />
       </div>
     </div>
   );
 }
 
 // ─── CHAT BUBBLE ─────────────────────────────────────────────────────────────
-function ChatBubble({ message, voiceSupported, onSpeak, onFeedback }) {
+function ChatBubble({ message, voiceSupported, onSpeak, onDecideProposal, decidingProposalId, onFeedback }) {
   const { t } = useTranslation();
   const isUser = message.role === 'user';
   const [voted, setVoted] = useState(null); // null | 'up' | 'down'
-
-  function handleFeedback(rating) {
-    if (voted) return;
-    setVoted(rating > 0 ? 'up' : 'down');
-    onFeedback && onFeedback(rating);
-  }
-
+  const proposals = Array.isArray(message.proposals) ? message.proposals : [];
+  const visualizations = !isUser && Array.isArray(message.visualizations)
+    ? message.visualizations.slice(0, 3)
+    : [];
+  const mapViz = visualizations.filter((v) => v && (v.type === 'farm_map' || v.type === 'field_map' || v.type === 'heatmap'));
+  const cardViz = visualizations.filter((v) => v && v.type !== 'farm_map' && v.type !== 'field_map' && v.type !== 'heatmap');
+  const hasViz = visualizations.length > 0;
   return (
     <div style={{ display: 'flex', justifyContent: isUser ? 'flex-end' : 'flex-start', marginBottom: 10 }}>
       {!isUser && (
@@ -201,59 +210,121 @@ function ChatBubble({ message, voiceSupported, onSpeak, onFeedback }) {
           <img src="/images/SaigeAIIcon.webp" alt="Saige" style={{ width: 32, height: 32, objectFit: 'cover' }} />
         </div>
       )}
-      <div style={{ position: 'relative', maxWidth: '75%' }}>
-        <div className={isUser ? undefined : 'saige-msg'} style={{
-          position: 'relative',
-          borderRadius: isUser ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
-          padding: '9px 13px',
-          background: isUser ? SAIGE_GREEN : SAIGE_LIGHT,
-          border: isUser ? 'none' : `1px solid ${SAIGE_BORDER}`,
-          color: isUser ? '#fff' : SAIGE_TEXT,
-          fontSize: 13.5, lineHeight: 1.55,
-          fontFamily: SAIGE_FONT_BODY,
-          boxShadow: '0 1px 2px rgba(15,40,10,0.06)',
-          paddingRight: !isUser && voiceSupported ? '2.2rem' : '13px',
-        }}>
-          <p style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{message.content}</p>
-          {!isUser && voiceSupported && (
-            <button
-              className="saige-speak"
-              onClick={() => onSpeak(message.content)}
-              title={t('saige_page.read_aloud_title')}
-              style={{
-                position: 'absolute', top: 5, right: 5,
-                background: 'transparent', border: 'none',
-                color: SAIGE_GREEN, fontSize: 13, cursor: 'pointer',
-                padding: '2px 4px', opacity: 0, transition: 'opacity 0.15s',
-                lineHeight: 1,
-              }}
-            >🔊</button>
-          )}
-        </div>
-        {!isUser && message.content && onFeedback && (
-          <div style={{ display: 'flex', gap: 4, marginTop: 4, justifyContent: 'flex-end' }}>
-            <button
-              type="button"
-              onClick={() => handleFeedback(1)}
-              title="Helpful"
-              style={{
-                background: 'none', border: 'none', cursor: voted ? 'default' : 'pointer',
-                fontSize: 13, lineHeight: 1, padding: '1px 3px', opacity: voted === 'down' ? 0.3 : 1,
-                color: voted === 'up' ? SAIGE_GREEN : '#9ca3af',
-              }}
-            >👍</button>
-            <button
-              type="button"
-              onClick={() => handleFeedback(-1)}
-              title="Not helpful"
-              style={{
-                background: 'none', border: 'none', cursor: voted ? 'default' : 'pointer',
-                fontSize: 13, lineHeight: 1, padding: '1px 3px', opacity: voted === 'up' ? 0.3 : 1,
-                color: voted === 'down' ? '#dc2626' : '#9ca3af',
-              }}
-            >👎</button>
+      <div style={{ maxWidth: hasViz ? '90%' : '75%', minWidth: 0, flex: hasViz ? '1 1 auto' : undefined }}>
+      <div className={isUser ? undefined : 'saige-msg'} style={{
+        position: 'relative',
+        maxWidth: '100%', borderRadius: isUser ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
+        padding: '9px 13px',
+        background: isUser ? SAIGE_GREEN : SAIGE_LIGHT,
+        border: isUser ? 'none' : `1px solid ${SAIGE_BORDER}`,
+        color: isUser ? '#fff' : SAIGE_TEXT,
+        fontSize: 13.5, lineHeight: 1.55,
+        fontFamily: SAIGE_FONT_BODY,
+        boxShadow: '0 1px 2px rgba(15,40,10,0.06)',
+        paddingRight: !isUser && voiceSupported ? '2.2rem' : '13px',
+      }}>
+        <p style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{message.content}</p>
+        {!isUser && cardViz.map((v) => (
+          <div key={v.id || v.title} style={{ marginTop: 10 }}>
+            <VizRenderer spec={v} />
           </div>
+        ))}
+        {!isUser && proposals.map((p, pi) => {
+          if (!p || p._dismissed) return null;
+          if (String(p.tool || '').toLowerCase() === 'save_plan') return null;
+          const pid = p.proposal_id || `local-${pi}`;
+          return (
+            <div
+              key={pid}
+              style={{
+                marginTop: 10,
+                padding: 10,
+                borderRadius: 10,
+                border: `1px solid ${SAIGE_BORDER}`,
+                background: '#fff',
+              }}
+            >
+              <div style={{ fontSize: 12, fontWeight: 700, color: SAIGE_GREEN_DARK, marginBottom: 4 }}>
+                {p._executed ? 'Done' : 'Approve this change?'}
+              </div>
+              <div style={{ fontSize: 12, color: '#374151', marginBottom: 8 }}>
+                {p.summary || `${p.tool || 'action'} proposed`}
+              </div>
+              {!p._executed && (
+                <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                  <button
+                    type="button"
+                    disabled={decidingProposalId === pid}
+                    onClick={() => onDecideProposal && onDecideProposal(pi, 'reject')}
+                    style={{
+                      fontSize: 12, padding: '5px 10px', borderRadius: 8,
+                      border: '1px solid #fecaca', background: '#fff', color: '#b91c1c',
+                      cursor: 'pointer', fontWeight: 600, fontFamily: SAIGE_FONT_BODY,
+                    }}
+                  >
+                    Reject
+                  </button>
+                  <button
+                    type="button"
+                    disabled={decidingProposalId === pid}
+                    onClick={() => onDecideProposal && onDecideProposal(pi, 'approve')}
+                    style={{
+                      fontSize: 12, padding: '5px 10px', borderRadius: 8,
+                      border: 'none', background: SAIGE_GREEN, color: '#fff',
+                      cursor: 'pointer', fontWeight: 600, fontFamily: SAIGE_FONT_BODY,
+                    }}
+                  >
+                    Approve
+                  </button>
+                </div>
+              )}
+            </div>
+          );
+        })}
+        {!isUser && voiceSupported && (
+          <button
+            className="saige-speak"
+            onClick={() => onSpeak(message.content)}
+            title={t('saige_page.read_aloud_title')}
+            style={{
+              position: 'absolute', top: 5, right: 5,
+              background: 'transparent', border: 'none',
+              color: SAIGE_GREEN, fontSize: 13, cursor: 'pointer',
+              padding: '2px 4px', opacity: 0, transition: 'opacity 0.15s',
+              lineHeight: 1,
+            }}
+          >🔊</button>
         )}
+      </div>
+      {!isUser && message.content && onFeedback && (
+        <div style={{ display: 'flex', gap: 4, marginTop: 4, justifyContent: 'flex-end' }}>
+          <button
+            type="button"
+            onClick={() => { if (voted) return; setVoted('up'); onFeedback(1); }}
+            title="Helpful"
+            style={{
+              background: 'none', border: 'none', cursor: voted ? 'default' : 'pointer',
+              fontSize: 13, lineHeight: 1, padding: '1px 3px', opacity: voted === 'down' ? 0.3 : 1,
+              color: voted === 'up' ? SAIGE_GREEN : '#9ca3af',
+            }}
+          >👍</button>
+          <button
+            type="button"
+            onClick={() => { if (voted) return; setVoted('down'); onFeedback(-1); }}
+            title="Not helpful"
+            style={{
+              background: 'none', border: 'none', cursor: voted ? 'default' : 'pointer',
+              fontSize: 13, lineHeight: 1, padding: '1px 3px', opacity: voted === 'up' ? 0.3 : 1,
+              color: voted === 'down' ? '#dc2626' : '#9ca3af',
+            }}
+          >👎</button>
+        </div>
+      )}
+      {!isUser && mapViz.map((v) => (
+        <div key={v.id || v.title} style={{ marginTop: 10, width: '100%' }}>
+          <VizRenderer spec={v} />
+        </div>
+      ))}
       </div>
     </div>
   );
@@ -669,6 +740,8 @@ export default function SaigePage() {
   const [speaking,  setSpeaking]  = useState(false);
   const [recording, setRecording] = useState(false);
   const [voiceError, setVoiceError] = useState(null);
+  const [decidingProposalId, setDecidingProposalId] = useState(null);
+  const [proposalsRefreshKey, setProposalsRefreshKey] = useState(0);
 
   const recognitionRef    = useRef(null);
   const isRecordingRef    = useRef(false);
@@ -865,7 +938,11 @@ export default function SaigePage() {
           const res = await fetch(`${SAIGE_API}/threads/${threadId}/messages?user_id=${userId}`, { signal: ctrl.signal, headers: getAuthHeaders() });
           if (res.ok) {
             const d = await res.json();
-            messages = (d.messages || []).map(m => ({ role: m.role, content: m.content }));
+            messages = (d.messages || []).map((m) => ({
+              role: m.role,
+              content: m.content,
+              visualizations: m.metadata?.visualizations || m.visualizations || [],
+            }));
             _msgCache.set(threadId, { messages, ts: Date.now() });
           }
         } catch (e) {
@@ -903,6 +980,76 @@ export default function SaigePage() {
     advisoryTypeRef.current = null;
     setProcessingStage('default');
     fetchThreads();
+  }
+
+  async function decideProposal(msgIdx, proposalIdx, decision) {
+    const msg = activeChat[msgIdx];
+    const proposal = msg?.proposals?.[proposalIdx];
+    if (!proposal || proposal._executed || proposal._dismissed) return;
+    const pid = proposal.proposal_id;
+    if (decision === 'reject' && !pid) {
+      setActiveChat((prev) => prev.map((m, i) => (i !== msgIdx ? m : {
+        ...m,
+        proposals: (m.proposals || []).map((pp, j) => (j === proposalIdx ? { ...pp, _dismissed: true } : pp)),
+      })));
+      return;
+    }
+    if (!pid) {
+      setActiveChat((prev) => [
+        ...prev,
+        { role: 'assistant', content: 'This proposal is missing an id — refresh and try again.' },
+      ]);
+      return;
+    }
+    if (decision === 'approve' && !window.confirm('Approve this Saige change?')) return;
+    setDecidingProposalId(pid);
+    try {
+      const thread = proposal.thread_id || activeThreadId;
+      let ok = false;
+      const r = await fetch(`${SAIGE_API}/proposals/${pid}/decide`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ decision, thread_id: thread, edits: {} }),
+      });
+      if (r.ok) {
+        ok = true;
+      } else {
+        const r2 = await fetch(`${SAIGE_API}/resume`, {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ thread_id: thread, decision, proposal_id: pid }),
+        });
+        ok = r2.ok;
+        if (!ok) {
+          const j = await r2.json().catch(() => ({}));
+          throw new Error(j?.message || j?.detail || `HTTP ${r2.status}`);
+        }
+      }
+      if (ok) {
+        setActiveChat((prev) => {
+          const next = prev.map((m, i) => (i !== msgIdx ? m : {
+            ...m,
+            proposals: (m.proposals || []).map((pp, j) => (
+              j === proposalIdx
+                ? { ...pp, _executed: decision === 'approve', _dismissed: decision === 'reject' }
+                : pp
+            )),
+          }));
+          const doneText = decision === 'approve'
+            ? `Done — ${proposal.summary || 'change applied'}.`
+            : 'Okay, I cancelled that change.';
+          return [...next, { role: 'assistant', content: doneText }];
+        });
+        setProposalsRefreshKey((k) => k + 1);
+      }
+    } catch (e) {
+      setActiveChat((prev) => [
+        ...prev,
+        { role: 'assistant', content: `Could not ${decision}: ${e.message || 'please try again.'}` },
+      ]);
+    } finally {
+      setDecidingProposalId(null);
+    }
   }
 
   function sendFeedback(rating) {
@@ -994,9 +1141,11 @@ export default function SaigePage() {
         if (!content?.trim()) {
           content = payload.diagnosis || payload.response || t('saige_page.err_generic');
         }
-        if (payload.status === 'interrupted' && !/reply\s+\*\*yes\*\*|reply yes|approve or \*\*no\*\*/i.test(content)) {
-          content = `${content}\n\nReply yes to approve or no to cancel.`.trim();
+        if (payload.status === 'interrupted' && !/approval|reply yes|reply \*\*yes\*\*/i.test(content)) {
+          content = `${content}\n\nI've prepared change proposal(s) for your approval. Reply yes to approve or no to cancel.`.trim();
         }
+        const proposals = Array.isArray(payload.proposals) ? payload.proposals : [];
+        const visualizations = Array.isArray(payload.visualizations) ? payload.visualizations : [];
         advisoryTypeRef.current = payload.advisory_type || null;
         setActiveChat(prev => {
           const updated = [
@@ -1004,12 +1153,15 @@ export default function SaigePage() {
             {
               role: 'assistant',
               content,
+              ...(proposals.length ? { proposals } : {}),
+              ...(visualizations.length ? { visualizations } : {}),
             },
           ];
           saveThread(userId, activeThreadId, updated, payload.status || 'complete', payload.advisory_type || null);
           return updated;
         });
         fetchThreads();
+        if (proposals.length) setProposalsRefreshKey((k) => k + 1);
         if (autoSpeak && content) playTTS(content);
       } else if (payload.status === 'error') {
         setActiveChat(prev => [...prev, { role: 'assistant', content: t('saige_page.err_server', { message: payload.message || 'Please try again.' }) }]);
@@ -1048,7 +1200,14 @@ export default function SaigePage() {
     <>
     <PageMeta title="Saige | Agricultural AI Assistant | OFN" noIndex />
     <AccountLayout Business={Business} BusinessID={BusinessID} PeopleID={userId} pageTitle={t('saige_page.page_title')} breadcrumbs={[{ label: t('nav.dashboard'), to: '/dashboard' }, { label: t('saige_page.breadcrumb') }]}>
-      <div style={{ margin: '-24px', display: 'flex', flexDirection: 'column', height: 'calc(100dvh - 180px)' }}>
+      <div style={{
+        margin: '-24px -24px calc(-24px - 3rem)',
+        display: 'flex',
+        flexDirection: 'column',
+        // AppShell already offsets the 72px header; 180px subtracted it again and left a hole.
+        height: 'calc(100dvh - 108px)',
+        overflow: 'hidden',
+      }}>
 
         <div style={{
           padding: '10px 18px', background: SAIGE_GREEN, color: '#fff',
@@ -1109,6 +1268,12 @@ export default function SaigePage() {
               {isLoggedIn && (
                 <div style={{ maxWidth: 800, margin: '0 auto 16px' }}>
                   <SaigeDraftsPanel businessId={BusinessID ? Number(BusinessID) : 0} />
+                  <SaigeProposalsPanel
+                    key={proposalsRefreshKey}
+                    businessId={BusinessID ? Number(BusinessID) : 0}
+                    threadId={activeThreadId || ''}
+                    onChange={() => setProposalsRefreshKey((k) => k + 1)}
+                  />
                 </div>
               )}
               {isLoggedIn && activeChat.length <= 1 && (
@@ -1122,12 +1287,19 @@ export default function SaigePage() {
                   <FieldHealthWidget />
                 </div>
               )}
+              {import.meta.env.DEV && searchParams.get('vizdev') === '1' && (
+                <VizPlayground />
+              )}
               {activeChat.map((msg, i) => (
                 <ChatBubble
                   key={i}
                   message={msg}
                   voiceSupported={ttsSupported}
                   onSpeak={playTTS}
+                  decidingProposalId={decidingProposalId}
+                  onDecideProposal={msg.role === 'assistant'
+                    ? (pi, decision) => decideProposal(i, pi, decision)
+                    : undefined}
                   onFeedback={msg.role === 'assistant' ? sendFeedback : undefined}
                 />
               ))}
@@ -1173,7 +1345,7 @@ export default function SaigePage() {
             )}
 
             {!quiz && !isThinking && (
-              <div style={{ padding: '12px 20px 16px', borderTop: `1px solid ${SAIGE_BORDER}`, background: '#fff' }}>
+              <div style={{ padding: '12px 20px 16px', borderTop: `1px solid ${SAIGE_BORDER}`, background: '#fff', flexShrink: 0 }}>
                 <div style={{ display: 'flex', gap: 10, maxWidth: 800, margin: '0 auto', alignItems: 'center' }}>
                   {sttSupported && (
                     <button
