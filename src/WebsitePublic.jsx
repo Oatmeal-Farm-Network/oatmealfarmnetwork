@@ -2216,11 +2216,15 @@ const OFN_HOSTS = [
   // Staging Cloud Run (both URL forms)
   'oatmeal-frontend-staging-1087130530284.us-central1.run.app',
   'oatmeal-frontend-staging-lrviw4iujq-uc.a.run.app',
+  // Development Cloud Run
+  'oatmeal-frontend-development-1087130530284.us-central1.run.app',
+  'oatmeal-frontend-development-lrviw4iujq-uc.a.run.app',
 ];
 const isCustomDomain = !(
   OFN_HOSTS.some(h => window.location.hostname === h || window.location.hostname.endsWith(`.${h}`))
   || window.location.hostname.startsWith('oatmeal-frontend-staging')
   || window.location.hostname.startsWith('oatmeal-frontend-testing')
+  || window.location.hostname.startsWith('oatmeal-frontend-development')
   || window.location.hostname.startsWith('oatmealfarmnetwork-')
 );
 
