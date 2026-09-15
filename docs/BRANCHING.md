@@ -23,3 +23,6 @@
 - Push to `main` → production Cloud Run (`animated-flare-421518`) via GitHub Actions (not Cloud Build)
 
 Updated: 2026-09-15 UTC
+
+
+<!-- train-dev-drill -->
