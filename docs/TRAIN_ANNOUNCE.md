@@ -11,3 +11,5 @@ Effective now:
 `GCP/*-testing` is retiring. Open new work against **development**, then promote development → staging → main.
 
 Questions: @dbanoth / @OatmealAIJohn
+
+<!-- bad-hop-drill -->
